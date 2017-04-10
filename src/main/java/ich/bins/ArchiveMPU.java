@@ -14,6 +14,8 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartRequest;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -34,25 +36,29 @@ public final class ArchiveMPU {
   private static final int partSize = 1048576; // 1 MB.
   private static final int MAX_ATTEMPTS = 50;
 
-  private static final ProfileCredentialsProvider credentials = new ProfileCredentialsProvider();
+  private static final Logger log = LoggerFactory.getLogger(ArchiveMPU.class);
 
-  private final AmazonGlacier client;
+//  private final
+
   private final String fileToUpload;
   private final String description;
   private final String vaultName;
+  private final String serviceEndpoint;
+  private final String signingRegion;
 
-  private ArchiveMPU(AmazonGlacier client, String fileToUpload, String description, String vaultName) {
-    this.client = client;
+  private ArchiveMPU(String fileToUpload, String description, String vaultName, String serviceEndpoint, String signingRegion) {
     this.fileToUpload = fileToUpload;
     this.description = description;
     this.vaultName = vaultName;
+    this.serviceEndpoint = serviceEndpoint;
+    this.signingRegion = signingRegion;
   }
 
   public static void main(String[] args) throws IOException {
     try {
       if (args.length != 5) {
-        System.out.println("Args: fileToUpload description vaultName serviceEndpoint signingRegion");
-        System.out.println("Example:\n\t" +
+        log.info("Args: fileToUpload description vaultName serviceEndpoint signingRegion");
+        log.info("Example:\n\t" +
             "/home/ich/myarchive.tar.gpg\n\t" + //fileToUpload
             "myarchive.tar.gpg\n\t" + //description
             "myvault\n\t" + // vaultName
@@ -66,38 +72,39 @@ public final class ArchiveMPU {
       String serviceEndpoint = args[3];
       String signingRegion = args[4];
 
-      System.out.println("------------");
-      System.out.println("fileToUpload: " + fileToUpload);
-      System.out.println("description: " + description);
-      System.out.println("vaultName: " + vaultName);
-      System.out.println("serviceEndpoint: " + serviceEndpoint);
-      System.out.println("signingRegion: " + signingRegion);
-      System.out.println("------------");
+      log.info("------------");
+      log.info("fileToUpload: " + fileToUpload);
+      log.info("description: " + description);
+      log.info("vaultName: " + vaultName);
+      log.info("serviceEndpoint: " + serviceEndpoint);
+      log.info("signingRegion: " + signingRegion);
+      log.info("------------");
 
-      System.out.println("File size: " + new File(fileToUpload).length());
+      log.info("File size: " + new File(fileToUpload).length());
 
-      AmazonGlacier client =
-          AmazonGlacierClientBuilder.standard()
-              .withCredentials(credentials)
-              .withEndpointConfiguration(
-                  new AwsClientBuilder.EndpointConfiguration(
-                      serviceEndpoint, signingRegion))
-              .withClientConfiguration(new ClientConfiguration())
-              .build();
-
-      ArchiveMPU archiveMPU = new ArchiveMPU(client, fileToUpload, description, vaultName);
+      ArchiveMPU archiveMPU = new ArchiveMPU(fileToUpload, description, vaultName, serviceEndpoint, signingRegion);
 
       InitiateMultipartUploadResult initiateUploadResult = archiveMPU.initiateMultipartUpload();
-      System.out.println(initiateUploadResult);
+      log.info(initiateUploadResult.toString());
       String uploadId = initiateUploadResult.getUploadId();
       String checksum = archiveMPU.uploadParts(uploadId);
       CompleteMultipartUploadResult result = archiveMPU.completeMultiPartUpload(
           uploadId,
           checksum);
-      System.out.println("Upload finished\n:" + result);
+      log.info("Upload finished\n:" + result);
     } catch (Exception e) {
-      e.printStackTrace(System.out);
+      log.error("Errror", e);
     }
+  }
+
+  private AmazonGlacier client() {
+    return AmazonGlacierClientBuilder.standard()
+        .withCredentials(new ProfileCredentialsProvider())
+        .withEndpointConfiguration(
+            new AwsClientBuilder.EndpointConfiguration(
+                serviceEndpoint, signingRegion))
+        .withClientConfiguration(new ClientConfiguration())
+        .build();
   }
 
   private InitiateMultipartUploadResult initiateMultipartUpload() {
@@ -107,7 +114,7 @@ public final class ArchiveMPU {
         .withArchiveDescription(description)
         .withPartSize(Integer.toString(partSize));
 
-    return client.initiateMultipartUpload(request);
+    return client().initiateMultipartUpload(request);
   }
 
   private String uploadParts(
@@ -140,7 +147,7 @@ public final class ArchiveMPU {
         f.get();
         return true;
       } catch (Exception e) {
-        e.printStackTrace();
+        log.error("Error", e);
         return false;
       }
     });
@@ -151,24 +158,18 @@ public final class ArchiveMPU {
     }
   }
 
-  private static final class UploadResult implements Callable<UploadMultipartPartResult> {
+  private final class UploadResult implements Callable<UploadMultipartPartResult> {
     final long offset;
     final byte[] bytesRead;
-    final String vaultName;
     final String uploadId;
-    private final AmazonGlacier client;
     final String checksum;
 
     private UploadResult(long offset,
                          byte[] bytesRead,
-                         String vaultName,
-                         String uploadId,
-                         AmazonGlacier client) {
+                         String uploadId) {
       this.bytesRead = bytesRead;
       this.offset = offset;
-      this.vaultName = vaultName;
       this.uploadId = uploadId;
-      this.client = client;
       this.checksum = TreeHashGenerator.calculateTreeHash(new ByteArrayInputStream(bytesRead));
     }
 
@@ -185,11 +186,11 @@ public final class ArchiveMPU {
               .withChecksum(checksum)
               .withRange(contentRange)
               .withUploadId(uploadId);
-          UploadMultipartPartResult partResult = client.uploadMultipartPart(partRequest);
-          System.out.println(contentRange + " uploaded, checksum: " + partResult.getChecksum());
+          UploadMultipartPartResult partResult = client().uploadMultipartPart(partRequest);
+          log.info(contentRange + " uploaded, checksum: " + partResult.getChecksum());
           return partResult;
         } catch (Exception e) {
-          System.out.println(contentRange + " (attempt " + i + " / " + MAX_ATTEMPTS + ") failed: " + e.getMessage());
+          log.info(contentRange + " (attempt " + i + " / " + MAX_ATTEMPTS + ") failed: " + e.getMessage());
         }
       }
       throw new IllegalStateException(contentRange + ": Giving up after " + MAX_ATTEMPTS + " attempts");
@@ -203,10 +204,10 @@ public final class ArchiveMPU {
     byte[] buffer = new byte[partSize];
     int read = fileToUpload.read(buffer, 0, buffer.length);
     if (read < 0) {
-      return new UploadResult(currentPosition, null, vaultName, uploadId, client);
+      return new UploadResult(currentPosition, null, uploadId);
     }
     byte[] bytesRead = Arrays.copyOf(buffer, read);
-    return new UploadResult(currentPosition, bytesRead, vaultName, uploadId, client);
+    return new UploadResult(currentPosition, bytesRead, uploadId);
   }
 
   private CompleteMultipartUploadResult completeMultiPartUpload(
@@ -221,6 +222,6 @@ public final class ArchiveMPU {
         .withChecksum(checksum)
         .withArchiveSize(String.valueOf(file.length()));
 
-    return client.completeMultipartUpload(compRequest);
+    return client().completeMultipartUpload(compRequest);
   }
 }
