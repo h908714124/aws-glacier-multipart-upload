@@ -27,11 +27,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 public final class ArchiveMPU {
 
   private static final int partSize = 1048576; // 1 MB.
+  private static final int clientLife = 20;
 
   private static final Logger log = LoggerFactory.getLogger(ArchiveMPU.class);
 
@@ -98,18 +100,27 @@ public final class ArchiveMPU {
   }
 
   private AmazonGlacier client = null;
+  private final AtomicLong connectionCount = new AtomicLong();
 
-  AmazonGlacier client() {
+  synchronized AmazonGlacier client() {
     if (client == null) {
-      client = AmazonGlacierClientBuilder.standard()
-          .withCredentials(new ProfileCredentialsProvider())
-          .withEndpointConfiguration(
-              new AwsClientBuilder.EndpointConfiguration(
-                  serviceEndpoint, signingRegion))
-          .withClientConfiguration(new ClientConfiguration())
-          .build();
+      client = _client();
+    }
+    if (connectionCount.incrementAndGet() % clientLife == 0) {
+      client.shutdown();
+      client = _client();
     }
     return client;
+  }
+
+  private AmazonGlacier _client() {
+    return AmazonGlacierClientBuilder.standard()
+        .withCredentials(new ProfileCredentialsProvider())
+        .withEndpointConfiguration(
+            new AwsClientBuilder.EndpointConfiguration(
+                serviceEndpoint, signingRegion))
+        .withClientConfiguration(new ClientConfiguration())
+        .build();
   }
 
   private InitiateMultipartUploadResult initiateMultipartUpload() {
