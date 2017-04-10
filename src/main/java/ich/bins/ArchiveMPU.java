@@ -11,13 +11,11 @@ import com.amazonaws.services.glacier.model.CompleteMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.CompleteMultipartUploadResult;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
-import com.amazonaws.services.glacier.model.UploadMultipartPartRequest;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -25,7 +23,6 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -35,13 +32,12 @@ import java.util.stream.Collectors;
 public final class ArchiveMPU {
 
   private static final int partSize = 1048576; // 1 MB.
-  private static final int MAX_ATTEMPTS = 50;
 
   private static final Logger log = LoggerFactory.getLogger(ArchiveMPU.class);
 
   private final String fileToUpload;
   private final String description;
-  private final String vaultName;
+  final String vaultName;
   private final String serviceEndpoint;
   private final String signingRegion;
 
@@ -103,7 +99,7 @@ public final class ArchiveMPU {
 
   private AmazonGlacier client = null;
 
-  private AmazonGlacier client() {
+  AmazonGlacier client() {
     if (client == null) {
       client = AmazonGlacierClientBuilder.standard()
           .withCredentials(new ProfileCredentialsProvider())
@@ -146,16 +142,16 @@ public final class ArchiveMPU {
             uploadId,
             currentPosition,
             fileToUpload);
-        if (command.bytesRead == null) {
+        if (command.length() == 0) {
           break;
         }
         commands.add(command);
-        currentPosition += command.bytesRead.length;
+        currentPosition += command.length();
       }
     }
 
     long totalLength =
-        commands.stream().mapToLong(command -> command.bytesRead.length).sum();
+        commands.stream().mapToInt(UploadPartCommand::length).sum();
 
     if (totalLength != file.length()) {
       throw new IllegalStateException("File size is " + file.length() +
@@ -184,57 +180,6 @@ public final class ArchiveMPU {
     }
   }
 
-  private final class UploadPartCommand implements Callable<UploadMultipartPartResult> {
-    private final AtomicInteger numParts;
-    private final AtomicInteger completed;
-    final long offset;
-    final byte[] bytesRead;
-    final String uploadId;
-    final String checksum;
-
-    private UploadPartCommand(AtomicInteger numParts,
-                              AtomicInteger completed,
-                              long offset,
-                              byte[] bytesRead,
-                              String uploadId) {
-      this.numParts = numParts;
-      this.completed = completed;
-      this.bytesRead = bytesRead;
-      this.offset = offset;
-      this.uploadId = uploadId;
-      this.checksum = bytesRead == null ?
-          null :
-          TreeHashGenerator.calculateTreeHash(new ByteArrayInputStream(bytesRead));
-    }
-
-    @Override
-    public UploadMultipartPartResult call() throws Exception {
-      String contentRange = String.format("bytes %d-%d/*",
-          offset,
-          offset + bytesRead.length - 1);
-      for (int i = 0; i < MAX_ATTEMPTS; i++) {
-        try {
-          UploadMultipartPartRequest partRequest = new UploadMultipartPartRequest()
-              .withVaultName(vaultName)
-              .withBody(new ByteArrayInputStream(bytesRead))
-              .withChecksum(checksum)
-              .withRange(contentRange)
-              .withUploadId(uploadId);
-          UploadMultipartPartResult partResult =
-              client().uploadMultipartPart(partRequest);
-          log.info(completed.incrementAndGet() + " of " +
-              numParts.get() + " parts completed. Range: " +
-              contentRange + ", checksum: " +
-              partResult.getChecksum());
-          return partResult;
-        } catch (Exception e) {
-          log.info(contentRange + " (attempt " + i + " / " + MAX_ATTEMPTS + ") failed: " + e.getMessage());
-        }
-      }
-      throw new IllegalStateException(contentRange + ": Giving up after " + MAX_ATTEMPTS + " attempts");
-    }
-  }
-
   private UploadPartCommand uploadPart(
       AtomicInteger numParts,
       AtomicInteger completed,
@@ -244,10 +189,10 @@ public final class ArchiveMPU {
     byte[] buffer = new byte[partSize];
     int read = fileToUpload.read(buffer, 0, buffer.length);
     if (read < 0) {
-      return new UploadPartCommand(numParts, completed, currentPosition, null, uploadId);
+      return new UploadPartCommand(this, numParts, completed, currentPosition, null, uploadId);
     }
     byte[] bytesRead = Arrays.copyOf(buffer, read);
-    return new UploadPartCommand(numParts, completed, currentPosition, bytesRead, uploadId);
+    return new UploadPartCommand(this, numParts, completed, currentPosition, bytesRead, uploadId);
   }
 
   private CompleteMultipartUploadResult completeMultiPartUpload(
