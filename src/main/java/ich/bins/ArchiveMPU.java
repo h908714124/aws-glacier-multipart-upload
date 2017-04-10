@@ -23,6 +23,11 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 public final class ArchiveMPU {
 
@@ -109,31 +114,85 @@ public final class ArchiveMPU {
       String uploadId) throws
       NoSuchAlgorithmException,
       AmazonClientException,
-      IOException {
+      IOException, InterruptedException {
     long currentPosition = 0;
-    final List<byte[]> binaryChecksums = new LinkedList<>();
+    List<UploadResult> commands = new LinkedList<>();
 
-    final File file = new File(fileToUpload);
+    File file = new File(fileToUpload);
+
     try (final FileInputStream fileToUpload = new FileInputStream(file)) {
       while (currentPosition < file.length()) {
-        UploadResult read = uploadPart(uploadId, currentPosition, fileToUpload);
-        if (read.bytesRead < 0) {
+        UploadResult command = uploadPart(uploadId, currentPosition, fileToUpload);
+        if (command.bytesRead == null) {
           break;
         }
-        binaryChecksums.add(read.binaryChecksum);
-        currentPosition += read.bytesRead;
+        commands.add(command);
+        currentPosition += command.bytesRead.length;
       }
     }
-    return TreeHashGenerator.calculateTreeHash(binaryChecksums);
+    List<byte[]> binaryChecksums = commands.stream()
+        .map(command -> BinaryUtils.fromHex(command.checksum))
+        .collect(Collectors.toList());
+    ExecutorService pool = Executors.newFixedThreadPool(4);
+    List<Future<UploadMultipartPartResult>> futures = pool.invokeAll(commands);
+    boolean success = futures.stream().allMatch(f -> {
+      try {
+        f.get();
+        return true;
+      } catch (Exception e) {
+        e.printStackTrace();
+        return false;
+      }
+    });
+    if (success) {
+      return TreeHashGenerator.calculateTreeHash(binaryChecksums);
+    } else {
+      throw new IllegalStateException("Some uploads have failed");
+    }
   }
 
-  private static final class UploadResult {
-    final byte[] binaryChecksum;
-    final int bytesRead;
+  private static final class UploadResult implements Callable<UploadMultipartPartResult> {
+    final long offset;
+    final byte[] bytesRead;
+    final String vaultName;
+    final String uploadId;
+    private final AmazonGlacier client;
+    final String checksum;
 
-    private UploadResult(byte[] binaryChecksum, int bytesRead) {
-      this.binaryChecksum = binaryChecksum;
+    private UploadResult(long offset,
+                         byte[] bytesRead,
+                         String vaultName,
+                         String uploadId,
+                         AmazonGlacier client) {
       this.bytesRead = bytesRead;
+      this.offset = offset;
+      this.vaultName = vaultName;
+      this.uploadId = uploadId;
+      this.client = client;
+      this.checksum = TreeHashGenerator.calculateTreeHash(new ByteArrayInputStream(bytesRead));
+    }
+
+    @Override
+    public UploadMultipartPartResult call() throws Exception {
+      String contentRange = String.format("bytes %d-%d/*",
+          offset,
+          offset + bytesRead.length - 1);
+      for (int i = 0; i < MAX_ATTEMPTS; i++) {
+        try {
+          UploadMultipartPartRequest partRequest = new UploadMultipartPartRequest()
+              .withVaultName(vaultName)
+              .withBody(new ByteArrayInputStream(bytesRead))
+              .withChecksum(checksum)
+              .withRange(contentRange)
+              .withUploadId(uploadId);
+          UploadMultipartPartResult partResult = client.uploadMultipartPart(partRequest);
+          System.out.println(contentRange + " uploaded, checksum: " + partResult.getChecksum());
+          return partResult;
+        } catch (Exception e) {
+          System.out.println(contentRange + " (attempt " + i + " / " + MAX_ATTEMPTS + ") failed: " + e.getMessage());
+        }
+      }
+      throw new IllegalStateException(contentRange + ": Giving up after " + MAX_ATTEMPTS + " attempts");
     }
   }
 
@@ -144,30 +203,10 @@ public final class ArchiveMPU {
     byte[] buffer = new byte[partSize];
     int read = fileToUpload.read(buffer, 0, buffer.length);
     if (read < 0) {
-      return new UploadResult(null, read);
+      return new UploadResult(currentPosition, null, vaultName, uploadId, client);
     }
-    String contentRange = String.format("bytes %d-%d/*", currentPosition, currentPosition + read - 1);
-    for (int i = 0; i < MAX_ATTEMPTS; i++) {
-      try {
-        byte[] bytesRead = Arrays.copyOf(buffer, read);
-        String checksum = TreeHashGenerator.calculateTreeHash(new ByteArrayInputStream(bytesRead));
-        byte[] binaryChecksum = BinaryUtils.fromHex(checksum);
-
-        UploadMultipartPartRequest partRequest = new UploadMultipartPartRequest()
-            .withVaultName(vaultName)
-            .withBody(new ByteArrayInputStream(bytesRead))
-            .withChecksum(checksum)
-            .withRange(contentRange)
-            .withUploadId(uploadId);
-
-        UploadMultipartPartResult partResult = client.uploadMultipartPart(partRequest);
-        System.out.println(contentRange + " uploaded, checksum: " + partResult.getChecksum());
-        return new UploadResult(binaryChecksum, read);
-      } catch (Exception e) {
-        System.out.println(contentRange + " (attempt " + i + " / " + MAX_ATTEMPTS + ") failed: " + e.getMessage());
-      }
-    }
-    throw new IllegalStateException(contentRange + ": Giving up after " + MAX_ATTEMPTS + " attempts");
+    byte[] bytesRead = Arrays.copyOf(buffer, read);
+    return new UploadResult(currentPosition, bytesRead, vaultName, uploadId, client);
   }
 
   private CompleteMultipartUploadResult completeMultiPartUpload(
