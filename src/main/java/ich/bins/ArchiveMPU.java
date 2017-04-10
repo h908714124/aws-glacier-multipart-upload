@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 public final class ArchiveMPU {
 
   private static final int partSize = 1048576; // 1 MB.
-  private static final int clientLife = 20;
+  private static final int clientLife = 60;
 
   private static final Logger log = LoggerFactory.getLogger(ArchiveMPU.class);
 
