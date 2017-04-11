@@ -10,6 +10,10 @@ So I used java instead, using this reference:
 
 https://docs.aws.amazon.com/amazonglacier/latest/dev/uploading-an-archive-mpu-using-java.html
 
+### Requirements
+
+A vault must already exist. I created it through AWS management console.
+
 ### Upload
 
 ````bash
