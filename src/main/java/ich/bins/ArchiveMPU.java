@@ -34,6 +34,7 @@ public final class ArchiveMPU {
 
   private static final int partSize = 1048576; // 1 MB.
   private static final int clientLife = 60;
+  private static final int threads = 4;
 
   private static final Logger log = LoggerFactory.getLogger(ArchiveMPU.class);
 
@@ -43,7 +44,11 @@ public final class ArchiveMPU {
   private final String serviceEndpoint;
   private final String signingRegion;
 
-  private ArchiveMPU(String fileToUpload, String description, String vaultName, String serviceEndpoint, String signingRegion) {
+  private ArchiveMPU(String fileToUpload,
+                     String description,
+                     String vaultName,
+                     String serviceEndpoint,
+                     String signingRegion) {
     this.fileToUpload = fileToUpload;
     this.description = description;
     this.vaultName = vaultName;
@@ -173,7 +178,7 @@ public final class ArchiveMPU {
         .map(command -> BinaryUtils.fromHex(command.checksum))
         .collect(Collectors.toList());
     numParts.set(binaryChecksums.size());
-    ExecutorService pool = Executors.newFixedThreadPool(4);
+    ExecutorService pool = Executors.newFixedThreadPool(threads);
     List<Future<UploadMultipartPartResult>> futures = pool.invokeAll(commands);
     boolean success = futures.stream().allMatch(f -> {
       try {
@@ -184,6 +189,7 @@ public final class ArchiveMPU {
         return false;
       }
     });
+    pool.shutdown();
     if (success) {
       return TreeHashGenerator.calculateTreeHash(binaryChecksums);
     } else {
