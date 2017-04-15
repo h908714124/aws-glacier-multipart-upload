@@ -13,6 +13,10 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
+import ich.bins.ArchiveMPUParser.Option;
+import net.jbock.CommandLineArguments;
+import net.jbock.Description;
+import net.jbock.LongName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,11 +48,22 @@ public final class ArchiveMPU {
   private final String serviceEndpoint;
   private final String signingRegion;
 
-  private ArchiveMPU(String fileToUpload,
-                     String description,
-                     String vaultName,
-                     String serviceEndpoint,
-                     String signingRegion) {
+  @CommandLineArguments
+  ArchiveMPU(@LongName("file")
+             @Description("file to upload")
+                 String fileToUpload,
+             @LongName("description")
+             @Description("intended archive name in vault")
+                 String description,
+             @LongName("vault-name")
+             @Description("aws glacier vault name; this vault must already exist")
+                 String vaultName,
+             @LongName("service-endpoint")
+             @Description("aws service endpoint, e.g. 'glacier.eu-central-1.amazonaws.com'")
+                 String serviceEndpoint,
+             @LongName("signing-region")
+             @Description("aws signing region, e.g. 'eu-central-1'")
+                 String signingRegion) {
     this.fileToUpload = fileToUpload;
     this.description = description;
     this.vaultName = vaultName;
@@ -57,18 +72,24 @@ public final class ArchiveMPU {
   }
 
   public static void main(String[] args) throws IOException {
-    ArchiveMPU archiveMPU = null;
+    ArchiveMPUParser parser = ArchiveMPUParser.init(args);
+    List<ArchiveMPUParser.Argument> missing = parser.arguments()
+        .stream()
+        .filter(p -> p.value == null)
+        .collect(Collectors.toList());
+    if (!missing.isEmpty()) {
+      System.out.println("Required options:");
+      ArchiveMPUParser.options().stream()
+          .map(Option::describe)
+          .forEach(System.out::println);
+      System.out.println("Missing required options:");
+      missing.stream().map(argument -> argument.option)
+          .map(Option::describe)
+          .forEach(System.out::println);
+      System.exit(1);
+    }
+    ArchiveMPU archiveMPU = parser.parse();
     try {
-      if (args.length != 5) {
-        log.info("Args: fileToUpload description vaultName serviceEndpoint signingRegion");
-        log.info("Example:\n\t" +
-            "/home/ich/myarchive.tar.gpg\n\t" + //fileToUpload
-            "myarchive.tar.gpg\n\t" + //description
-            "myvault\n\t" + // vaultName
-            "glacier.eu-central-1.amazonaws.com\n\t" + //serviceEndpoint
-            "eu-central-1"); //signingRegion
-        System.exit(1);
-      }
       String fileToUpload = args[0];
       String description = args[1];
       String vaultName = args[2];
@@ -98,9 +119,7 @@ public final class ArchiveMPU {
     } catch (Exception e) {
       log.error("Error", e);
     } finally {
-      if (archiveMPU != null) {
-        archiveMPU.client().shutdown();
-      }
+      archiveMPU.client().shutdown();
     }
   }
 

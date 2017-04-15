@@ -1,27 +1,21 @@
 # aws-glacier-multipart-upload
 
-### What is it
+### What's this?
 
-I couldn't get this bash script to work:
-
-https://github.com/benporter/aws-glacier-multipart-upload
-
-So I used java instead, using this reference:
-
-https://docs.aws.amazon.com/amazonglacier/latest/dev/uploading-an-archive-mpu-using-java.html
+A command line tool to upload an archive (file) into amazon glacier.
 
 ### Requirements
 
-A vault must already exist. I created it through AWS management console.
+A vault must already exist. I created one through AWS management console.
 
 ### Upload
 
 ````bash
-mvn clean package
-java -jar target/bins-1.0-SNAPSHOT-jar-with-dependencies.jar \
-	/home/ich/myarchive.tar.gpg \
-	myarchive.tar.gpg \
-	myvault \
-	glacier.eu-central-1.amazonaws.com \
-	eu-central-1
+mvn package
+java -jar target/glacier-upload.jar \
+        --file /home/ich/myarchive.tar.gpg \
+        --description myarchive.tar.gpg \
+        --vault-name myvault \
+        --service-endpoint glacier.eu-central-1.amazonaws.com \
+        --signing-region eu-central-1
 ````
