@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 public final class ArchiveMPU {
 
   private static final int partSize = 1048576; // 1 MB.
-  private static final int clientLife = 60;
+  private static final int clientLife = 60; // see comment below
   private static final int threads = 4;
 
   private static final Logger log = LoggerFactory.getLogger(ArchiveMPU.class);
@@ -50,19 +50,29 @@ public final class ArchiveMPU {
 
   @CommandLineArguments
   ArchiveMPU(@LongName("file")
-             @Description("file to upload")
+             @Description(
+                 argumentName = "FILE",
+                 lines = {"file to upload", "absolute or relative path"})
                  String fileToUpload,
              @LongName("description")
-             @Description("intended archive name in vault")
+             @Description(
+                 argumentName = "NAME",
+                 lines = {"archive name", "file name in vault"})
                  String description,
              @LongName("vault-name")
-             @Description("aws glacier vault name; this vault must already exist")
+             @Description(
+                 argumentName = "VAULT",
+                 lines = {"aws glacier vault name", "the vault must exist"})
                  String vaultName,
              @LongName("service-endpoint")
-             @Description("aws service endpoint, e.g. 'glacier.eu-central-1.amazonaws.com'")
+             @Description(
+                 argumentName = "URL",
+                 lines = {"aws service endpoint", "example: 'glacier.eu-central-1.amazonaws.com'"})
                  String serviceEndpoint,
              @LongName("signing-region")
-             @Description("aws signing region, e.g. 'eu-central-1'")
+             @Description(
+                 argumentName = "REGION",
+                 lines = {"aws signing region", "example: 'eu-central-1'"})
                  String signingRegion) {
     this.fileToUpload = fileToUpload;
     this.description = description;
@@ -72,55 +82,47 @@ public final class ArchiveMPU {
   }
 
   public static void main(String[] args) throws IOException {
-    ArchiveMPUParser parser = ArchiveMPUParser.init(args);
-    List<ArchiveMPUParser.Argument> missing = parser.arguments()
-        .stream()
-        .filter(p -> p.value == null)
-        .collect(Collectors.toList());
-    if (!missing.isEmpty()) {
-      System.out.println("Required options:");
-      ArchiveMPUParser.options().stream()
-          .map(Option::describe)
-          .forEach(System.out::println);
-      System.out.println("Missing required options:");
-      missing.stream().map(argument -> argument.option)
-          .map(Option::describe)
-          .forEach(System.out::println);
-      System.exit(1);
-    }
-    ArchiveMPU archiveMPU = parser.parse();
+    ArchiveMPU archiveMPU = parseArgs(args);
     try {
-      String fileToUpload = args[0];
-      String description = args[1];
-      String vaultName = args[2];
-      String serviceEndpoint = args[3];
-      String signingRegion = args[4];
-
-      log.info("------------");
-      log.info("fileToUpload: " + fileToUpload);
-      log.info("description: " + description);
-      log.info("vaultName: " + vaultName);
-      log.info("serviceEndpoint: " + serviceEndpoint);
-      log.info("signingRegion: " + signingRegion);
-      log.info("------------");
-
-      log.info("File size: " + new File(fileToUpload).length());
-
-      archiveMPU = new ArchiveMPU(fileToUpload, description, vaultName, serviceEndpoint, signingRegion);
-
-      InitiateMultipartUploadResult initiateUploadResult = archiveMPU.initiateMultipartUpload();
+      log.info("File size: " + new File(archiveMPU.fileToUpload).length());
+      InitiateMultipartUploadResult initiateUploadResult =
+          archiveMPU.initiateMultipartUpload();
       log.info(initiateUploadResult.toString());
       String uploadId = initiateUploadResult.getUploadId();
       String checksum = archiveMPU.uploadParts(uploadId);
       CompleteMultipartUploadResult result = archiveMPU.completeMultiPartUpload(
-          uploadId,
-          checksum);
+          uploadId, checksum);
       log.info("Upload finished\n:" + result);
     } catch (Exception e) {
       log.error("Error", e);
     } finally {
       archiveMPU.client().shutdown();
     }
+  }
+
+  private static ArchiveMPU parseArgs(String[] args) {
+    ArchiveMPUParser parser = ArchiveMPUParser.parse(args);
+    List<Option> missing = Arrays.stream(Option.values())
+        .filter(option -> parser.arguments().get(option) == null)
+        .collect(Collectors.toList());
+    if (!missing.isEmpty()) {
+      System.out.println("Required options:");
+      Arrays.stream(ArchiveMPUParser.Option.values())
+          .map(option -> option.describe(4))
+          .forEach(System.out::println);
+      System.out.println("Missing required options:");
+      missing.stream()
+          .map(Option::describeNames)
+          .forEach(System.out::println);
+      System.exit(1);
+    }
+    if (!parser.trash().isEmpty()) {
+      parser.trash().stream()
+          .map(token -> "Unexpected token: " + token)
+          .forEach(System.out::println);
+      System.exit(1);
+    }
+    return parser.bind();
   }
 
   private AmazonGlacier client = null;
@@ -131,6 +133,7 @@ public final class ArchiveMPU {
       client = _client();
     }
     if (connectionCount.incrementAndGet() % clientLife == 0) {
+      // not sure why but it seemed that without this, connections would degrade over time
       client.shutdown();
       client = _client();
     }
