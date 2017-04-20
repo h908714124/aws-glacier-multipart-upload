@@ -101,9 +101,9 @@ public final class ArchiveMPU {
   }
 
   private static ArchiveMPU parseArgs(String[] args) {
-    ArchiveMPUParser parser = ArchiveMPUParser.parse(args);
+    ArchiveMPUParser.Binder binder = ArchiveMPUParser.parse(args);
     List<Option> missing = Arrays.stream(Option.values())
-        .filter(option -> parser.arguments().get(option) == null)
+        .filter(option -> binder.arguments().get(option) == null)
         .collect(Collectors.toList());
     if (!missing.isEmpty()) {
       System.out.println("Required options:");
@@ -116,13 +116,13 @@ public final class ArchiveMPU {
           .forEach(System.out::println);
       System.exit(1);
     }
-    if (!parser.trash().isEmpty()) {
-      parser.trash().stream()
+    if (!binder.trash().isEmpty()) {
+      binder.trash().stream()
           .map(token -> "Unexpected token: " + token)
           .forEach(System.out::println);
       System.exit(1);
     }
-    return parser.bind();
+    return binder.bind();
   }
 
   private AmazonGlacier client = null;
