@@ -14,6 +14,7 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
 import ich.bins.ArchiveMPUParser.Option;
+import net.jbock.ArgumentName;
 import net.jbock.CommandLineArguments;
 import net.jbock.Description;
 import net.jbock.LongName;
@@ -50,29 +51,34 @@ public final class ArchiveMPU {
 
   @CommandLineArguments
   ArchiveMPU(@LongName("file")
-             @Description(
-                 argumentName = "FILE",
-                 lines = {"file to upload", "absolute or relative path"})
+             @ArgumentName("FILE")
+             @Description({
+                 "file to upload",
+                 "absolute or relative path"})
                  String fileToUpload,
              @LongName("description")
-             @Description(
-                 argumentName = "NAME",
-                 lines = {"archive name", "file name in vault"})
+             @ArgumentName("NAME")
+             @Description({
+                 "archive name",
+                 "file name in vault"})
                  String description,
              @LongName("vault-name")
-             @Description(
-                 argumentName = "VAULT",
-                 lines = {"aws glacier vault name", "the vault must exist"})
+             @ArgumentName("VAULT")
+             @Description({
+                 "aws glacier vault name",
+                 "the vault must exist"})
                  String vaultName,
              @LongName("service-endpoint")
-             @Description(
-                 argumentName = "URL",
-                 lines = {"aws service endpoint", "example: 'glacier.eu-central-1.amazonaws.com'"})
+             @ArgumentName("URL")
+             @Description({
+                 "aws service endpoint",
+                 "example: 'glacier.eu-central-1.amazonaws.com'"})
                  String serviceEndpoint,
              @LongName("signing-region")
-             @Description(
-                 argumentName = "REGION",
-                 lines = {"aws signing region", "example: 'eu-central-1'"})
+             @ArgumentName("REGION")
+             @Description({
+                 "aws signing region",
+                 "example: 'eu-central-1'"})
                  String signingRegion) {
     this.fileToUpload = fileToUpload;
     this.description = description;
@@ -116,8 +122,9 @@ public final class ArchiveMPU {
           .forEach(System.out::println);
       System.exit(1);
     }
-    if (!binder.trash().isEmpty()) {
-      binder.trash().stream()
+    // not expecting other tokens
+    if (!binder.otherTokens().isEmpty()) {
+      binder.otherTokens().stream()
           .map(token -> "Unexpected token: " + token)
           .forEach(System.out::println);
       System.exit(1);
