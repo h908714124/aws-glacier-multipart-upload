@@ -80,11 +80,11 @@ public final class ArchiveMPU {
                  "aws signing region",
                  "example: 'eu-central-1'"})
                  String signingRegion) throws MissingArgError {
-    this.fileToUpload = checkNotNull(fileToUpload, Option.FILETOUPLOAD);
+    this.fileToUpload = checkNotNull(fileToUpload, Option.FILE_TO_UPLOAD);
     this.description = checkNotNull(description, Option.DESCRIPTION);
-    this.vaultName = checkNotNull(vaultName, Option.VAULTNAME);
-    this.serviceEndpoint = checkNotNull(serviceEndpoint, Option.SERVICEENDPOINT);
-    this.signingRegion = checkNotNull(signingRegion, Option.SIGNINGREGION);
+    this.vaultName = checkNotNull(vaultName, Option.VAULT_NAME);
+    this.serviceEndpoint = checkNotNull(serviceEndpoint, Option.SERVICE_ENDPOINT);
+    this.signingRegion = checkNotNull(signingRegion, Option.SIGNING_REGION);
   }
 
   public static void main(String[] args) throws IOException {
@@ -108,6 +108,11 @@ public final class ArchiveMPU {
 
   private static ArchiveMPU parseArgs(String[] args) {
     ArchiveMPUParser.Binder binder = ArchiveMPUParser.parse(args);
+    if (!binder.otherTokens().isEmpty()) {
+      System.out.println("Unknown options: " + binder.otherTokens());
+      System.exit(1);
+      return null;
+    }
     try {
       return binder.bind();
     } catch (MissingArgError error) {
