@@ -79,12 +79,12 @@ public final class ArchiveMPU {
              @Description({
                  "aws signing region",
                  "example: 'eu-central-1'"})
-                 String signingRegion) {
-    this.fileToUpload = fileToUpload;
-    this.description = description;
-    this.vaultName = vaultName;
-    this.serviceEndpoint = serviceEndpoint;
-    this.signingRegion = signingRegion;
+                 String signingRegion) throws MissingArgError {
+    this.fileToUpload = checkNotNull(fileToUpload, Option.FILETOUPLOAD);
+    this.description = checkNotNull(description, Option.DESCRIPTION);
+    this.vaultName = checkNotNull(vaultName, Option.VAULTNAME);
+    this.serviceEndpoint = checkNotNull(serviceEndpoint, Option.SERVICEENDPOINT);
+    this.signingRegion = checkNotNull(signingRegion, Option.SIGNINGREGION);
   }
 
   public static void main(String[] args) throws IOException {
@@ -108,28 +108,18 @@ public final class ArchiveMPU {
 
   private static ArchiveMPU parseArgs(String[] args) {
     ArchiveMPUParser.Binder binder = ArchiveMPUParser.parse(args);
-    List<Option> missing = Arrays.stream(Option.values())
-        .filter(option -> binder.arguments().get(option) == null)
-        .collect(Collectors.toList());
-    if (!missing.isEmpty()) {
+    try {
+      return binder.bind();
+    } catch (MissingArgError error) {
       System.out.println("Required options:");
       Arrays.stream(ArchiveMPUParser.Option.values())
           .map(option -> option.describe(4))
           .forEach(System.out::println);
-      System.out.println("Missing required options:");
-      missing.stream()
-          .map(Option::describeNames)
-          .forEach(System.out::println);
+      System.out.println("Missing required option:");
+      System.out.println(error.option.describeNames());
       System.exit(1);
+      return null;
     }
-    // not expecting other tokens
-    if (!binder.otherTokens().isEmpty()) {
-      binder.otherTokens().stream()
-          .map(token -> "Unexpected token: " + token)
-          .forEach(System.out::println);
-      System.exit(1);
-    }
-    return binder.bind();
   }
 
   private AmazonGlacier client = null;
@@ -254,5 +244,20 @@ public final class ArchiveMPU {
         .withArchiveSize(String.valueOf(file.length()));
 
     return client().completeMultipartUpload(compRequest);
+  }
+
+  static final class MissingArgError extends Exception {
+    final ArchiveMPUParser.Option option;
+
+    MissingArgError(Option option) {
+      this.option = option;
+    }
+  }
+
+  private static String checkNotNull(String s, ArchiveMPUParser.Option option) throws MissingArgError {
+    if (s == null) {
+      throw new MissingArgError(option);
+    }
+    return s;
   }
 }
