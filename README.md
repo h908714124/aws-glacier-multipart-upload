@@ -13,9 +13,9 @@ A vault must already exist. I created one through AWS management console.
 ````bash
 mvn package
 java -jar target/glacier-upload.jar \
-        --file=/home/ich/myarchive.tar.gpg \
-        --description=myarchive.tar.gpg \
-        --vault-name=myvault \
-        --service-endpoint=glacier.eu-central-1.amazonaws.com \
-        --signing-region=eu-central-1
+        --file /home/ich/myarchive.tar.gpg \
+        --description myarchive.tar.gpg \
+        --vault-name myvault \
+        --service-endpoint glacier.eu-central-1.amazonaws.com \
+        --signing-region eu-central-1
 ````
