@@ -13,7 +13,7 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
-import ich.bins.ArchiveMPUParser.Option;
+import ich.bins.ArchiveMPU_Parser.Option;
 import net.jbock.ArgumentName;
 import net.jbock.CommandLineArguments;
 import net.jbock.Description;
@@ -107,7 +107,7 @@ public final class ArchiveMPU {
   }
 
   private static ArchiveMPU parseArgs(String[] args) {
-    ArchiveMPUParser.Binder binder = ArchiveMPUParser.parse(args);
+    ArchiveMPU_Parser.Binder binder = ArchiveMPU_Parser.parse(args);
     if (!binder.otherTokens().isEmpty()) {
       System.out.println("Unknown options: " + binder.otherTokens());
       System.exit(1);
@@ -117,7 +117,7 @@ public final class ArchiveMPU {
       return binder.bind();
     } catch (MissingArgError error) {
       System.out.println("Required options:");
-      Arrays.stream(ArchiveMPUParser.Option.values())
+      Arrays.stream(ArchiveMPU_Parser.Option.values())
           .map(option -> option.describe(4))
           .forEach(System.out::println);
       System.out.println("Missing required option:");
@@ -252,14 +252,14 @@ public final class ArchiveMPU {
   }
 
   static final class MissingArgError extends Exception {
-    final ArchiveMPUParser.Option option;
+    final ArchiveMPU_Parser.Option option;
 
     MissingArgError(Option option) {
       this.option = option;
     }
   }
 
-  private static String checkNotNull(String s, ArchiveMPUParser.Option option) throws MissingArgError {
+  private static String checkNotNull(String s, ArchiveMPU_Parser.Option option) throws MissingArgError {
     if (s == null) {
       throw new MissingArgError(option);
     }
