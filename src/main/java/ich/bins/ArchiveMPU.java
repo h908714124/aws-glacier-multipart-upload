@@ -14,6 +14,7 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
 import ich.bins.ArchiveMPU_Parser.Option;
+import java.util.Optional;
 import net.jbock.ArgumentName;
 import net.jbock.CommandLineArguments;
 import net.jbock.Description;
@@ -55,31 +56,31 @@ public final class ArchiveMPU {
              @Description({
                  "file to upload",
                  "absolute or relative path"})
-                 String fileToUpload,
+                 Optional<String> fileToUpload,
              @LongName("description")
              @ArgumentName("NAME")
              @Description({
                  "archive name",
                  "file name in vault"})
-                 String description,
+                 Optional<String> description,
              @LongName("vault-name")
              @ArgumentName("VAULT")
              @Description({
                  "aws glacier vault name",
                  "the vault must exist"})
-                 String vaultName,
+                 Optional<String> vaultName,
              @LongName("service-endpoint")
              @ArgumentName("URL")
              @Description({
                  "aws service endpoint",
                  "example: 'glacier.eu-central-1.amazonaws.com'"})
-                 String serviceEndpoint,
+                 Optional<String> serviceEndpoint,
              @LongName("signing-region")
              @ArgumentName("REGION")
              @Description({
                  "aws signing region",
                  "example: 'eu-central-1'"})
-                 String signingRegion) throws MissingArgError {
+                 Optional<String> signingRegion) throws MissingArgError {
     this.fileToUpload = checkNotNull(fileToUpload, Option.FILE_TO_UPLOAD);
     this.description = checkNotNull(description, Option.DESCRIPTION);
     this.vaultName = checkNotNull(vaultName, Option.VAULT_NAME);
@@ -259,10 +260,7 @@ public final class ArchiveMPU {
     }
   }
 
-  private static String checkNotNull(String s, ArchiveMPU_Parser.Option option) throws MissingArgError {
-    if (s == null) {
-      throw new MissingArgError(option);
-    }
-    return s;
+  private static String checkNotNull(Optional<String> s, ArchiveMPU_Parser.Option option) throws MissingArgError {
+    return s.orElseThrow(() -> new MissingArgError(option));
   }
 }
