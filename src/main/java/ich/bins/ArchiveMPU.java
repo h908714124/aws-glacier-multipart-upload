@@ -14,14 +14,6 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
 import ich.bins.ArchiveMPU_Parser.Option;
-import java.util.Optional;
-import net.jbock.ArgumentName;
-import net.jbock.CommandLineArguments;
-import net.jbock.Description;
-import net.jbock.LongName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -29,12 +21,19 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
+import net.jbock.ArgumentName;
+import net.jbock.CommandLineArguments;
+import net.jbock.Description;
+import net.jbock.LongName;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public final class ArchiveMPU {
 
@@ -118,11 +117,9 @@ public final class ArchiveMPU {
       return binder.bind();
     } catch (MissingArgError error) {
       System.out.println("Required options:");
-      Arrays.stream(ArchiveMPU_Parser.Option.values())
-          .map(option -> option.describe(4))
-          .forEach(System.out::println);
-      System.out.println("Missing required option:");
-      System.out.println(error.option.describeNames());
+      ArchiveMPU_Parser.printUsage(System.out, 4);
+      System.out.printf("Missing required option: %s%n",
+          error.option.describeNames());
       System.exit(1);
       return null;
     }

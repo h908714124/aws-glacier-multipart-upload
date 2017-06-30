@@ -48,7 +48,7 @@
     <dependency>
       <groupId>com.github.h908714124</groupId>
       <artifactId>jbock</artifactId>
-      <version>1.8</version>
+      <version>1.8.1</version>
       <scope>provided</scope>
     </dependency>
     <dependency>
