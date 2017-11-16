@@ -13,7 +13,7 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
-import ich.bins.ArchiveMPU_Parser.Option;
+import ich.bins.ArchiveMPU_Arguments_Parser.Option;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -32,6 +32,7 @@ import net.jbock.ArgumentName;
 import net.jbock.CommandLineArguments;
 import net.jbock.Description;
 import net.jbock.LongName;
+import net.jbock.OtherTokens;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -50,41 +51,53 @@ public final class ArchiveMPU {
   private final String signingRegion;
 
   @CommandLineArguments
-  ArchiveMPU(@LongName("file")
-             @ArgumentName("FILE")
-             @Description({
-                 "file to upload",
-                 "absolute or relative path"})
-                 Optional<String> fileToUpload,
-             @LongName("description")
-             @ArgumentName("NAME")
-             @Description({
-                 "archive name",
-                 "file name in vault"})
-                 Optional<String> description,
-             @LongName("vault-name")
-             @ArgumentName("VAULT")
-             @Description({
-                 "aws glacier vault name",
-                 "the vault must exist"})
-                 Optional<String> vaultName,
-             @LongName("service-endpoint")
-             @ArgumentName("URL")
-             @Description({
-                 "aws service endpoint",
-                 "example: 'glacier.eu-central-1.amazonaws.com'"})
-                 Optional<String> serviceEndpoint,
-             @LongName("signing-region")
-             @ArgumentName("REGION")
-             @Description({
-                 "aws signing region",
-                 "example: 'eu-central-1'"})
-                 Optional<String> signingRegion) throws MissingArgError {
-    this.fileToUpload = checkNotNull(fileToUpload, Option.FILE_TO_UPLOAD);
-    this.description = checkNotNull(description, Option.DESCRIPTION);
-    this.vaultName = checkNotNull(vaultName, Option.VAULT_NAME);
-    this.serviceEndpoint = checkNotNull(serviceEndpoint, Option.SERVICE_ENDPOINT);
-    this.signingRegion = checkNotNull(signingRegion, Option.SIGNING_REGION);
+  abstract static class Arguments {
+
+    @LongName("file")
+    @ArgumentName("FILE")
+    @Description({
+        "file to upload",
+        "absolute or relative path"})
+    abstract Optional<String> fileToUpload();
+
+    @LongName("description")
+    @ArgumentName("NAME")
+    @Description({
+        "archive name",
+        "file name in vault"})
+    abstract Optional<String> description();
+
+    @LongName("vault-name")
+    @ArgumentName("VAULT")
+    @Description({
+        "aws glacier vault name",
+        "the vault must exist"})
+    abstract Optional<String> vaultName();
+
+    @LongName("service-endpoint")
+    @ArgumentName("URL")
+    @Description({
+        "aws service endpoint",
+        "example: 'glacier.eu-central-1.amazonaws.com'"})
+    abstract Optional<String> serviceEndpoint();
+
+    @LongName("signing-region")
+    @ArgumentName("REGION")
+    @Description({
+        "aws signing region",
+        "example: 'eu-central-1'"})
+    abstract Optional<String> signingRegion();
+
+    @OtherTokens
+    abstract List<String> otherTokens();
+  }
+
+  ArchiveMPU(Arguments arguments) throws MissingArgError {
+    this.fileToUpload = checkNotNull(arguments.fileToUpload(), Option.FILE_TO_UPLOAD);
+    this.description = checkNotNull(arguments.description(), Option.DESCRIPTION);
+    this.vaultName = checkNotNull(arguments.vaultName(), Option.VAULT_NAME);
+    this.serviceEndpoint = checkNotNull(arguments.serviceEndpoint(), Option.SERVICE_ENDPOINT);
+    this.signingRegion = checkNotNull(arguments.signingRegion(), Option.SIGNING_REGION);
   }
 
   public static void main(String[] args) throws IOException {
@@ -107,17 +120,21 @@ public final class ArchiveMPU {
   }
 
   private static ArchiveMPU parseArgs(String[] args) {
-    ArchiveMPU_Parser.Binder binder = ArchiveMPU_Parser.parse(args);
-    if (!binder.otherTokens().isEmpty()) {
-      System.out.println("Unknown options: " + binder.otherTokens());
-      System.exit(1);
-      return null;
-    }
     try {
-      return binder.bind();
+      Arguments arguments = ArchiveMPU_Arguments_Parser.parse(args);
+      if (!arguments.otherTokens().isEmpty()) {
+        System.out.println("Unknown options: " + arguments.otherTokens());
+        System.exit(1);
+        return null;
+      }
+      return new ArchiveMPU(arguments);
     } catch (MissingArgError error) {
       System.out.println("Required options:");
-      ArchiveMPU_Parser.printUsage(System.out, 4);
+      for (Option option : Option.values()) {
+        if (option != Option.OTHER_TOKENS) {
+          System.out.println(option.describe(4));
+        }
+      }
       System.out.printf("Missing required option: %s%n",
           error.option.describeNames());
       System.exit(1);
@@ -250,14 +267,14 @@ public final class ArchiveMPU {
   }
 
   static final class MissingArgError extends Exception {
-    final ArchiveMPU_Parser.Option option;
+    final Option option;
 
     MissingArgError(Option option) {
       this.option = option;
     }
   }
 
-  private static String checkNotNull(Optional<String> s, ArchiveMPU_Parser.Option option) throws MissingArgError {
+  private static String checkNotNull(Optional<String> s, Option option) throws MissingArgError {
     return s.orElseThrow(() -> new MissingArgError(option));
   }
 }
