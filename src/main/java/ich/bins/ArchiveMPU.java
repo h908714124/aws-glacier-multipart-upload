@@ -13,7 +13,6 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
-import ich.bins.ArchiveMPU_Arguments_Parser.Option;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -21,18 +20,12 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import net.jbock.ArgumentName;
-import net.jbock.CommandLineArguments;
-import net.jbock.Description;
-import net.jbock.LongName;
-import net.jbock.OtherTokens;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -44,66 +37,16 @@ public final class ArchiveMPU {
 
   private static final Logger log = LoggerFactory.getLogger(ArchiveMPU.class);
 
-  private final String fileToUpload;
-  private final String description;
-  final String vaultName;
-  private final String serviceEndpoint;
-  private final String signingRegion;
+  final Arguments arguments;
 
-  @CommandLineArguments
-  abstract static class Arguments {
-
-    @LongName("file")
-    @ArgumentName("FILE")
-    @Description({
-        "file to upload",
-        "absolute or relative path"})
-    abstract Optional<String> fileToUpload();
-
-    @LongName("description")
-    @ArgumentName("NAME")
-    @Description({
-        "archive name",
-        "file name in vault"})
-    abstract Optional<String> description();
-
-    @LongName("vault-name")
-    @ArgumentName("VAULT")
-    @Description({
-        "aws glacier vault name",
-        "the vault must exist"})
-    abstract Optional<String> vaultName();
-
-    @LongName("service-endpoint")
-    @ArgumentName("URL")
-    @Description({
-        "aws service endpoint",
-        "example: 'glacier.eu-central-1.amazonaws.com'"})
-    abstract Optional<String> serviceEndpoint();
-
-    @LongName("signing-region")
-    @ArgumentName("REGION")
-    @Description({
-        "aws signing region",
-        "example: 'eu-central-1'"})
-    abstract Optional<String> signingRegion();
-
-    @OtherTokens
-    abstract List<String> otherTokens();
-  }
-
-  ArchiveMPU(Arguments arguments) throws MissingArgError {
-    this.fileToUpload = checkNotNull(arguments.fileToUpload(), Option.FILE_TO_UPLOAD);
-    this.description = checkNotNull(arguments.description(), Option.DESCRIPTION);
-    this.vaultName = checkNotNull(arguments.vaultName(), Option.VAULT_NAME);
-    this.serviceEndpoint = checkNotNull(arguments.serviceEndpoint(), Option.SERVICE_ENDPOINT);
-    this.signingRegion = checkNotNull(arguments.signingRegion(), Option.SIGNING_REGION);
+  ArchiveMPU(Arguments arguments) {
+    this.arguments = arguments;
   }
 
   public static void main(String[] args) throws IOException {
     ArchiveMPU archiveMPU = parseArgs(args);
     try {
-      log.info("File size: " + new File(archiveMPU.fileToUpload).length());
+      log.info("File size: " + new File(archiveMPU.arguments.fileToUpload()).length());
       InitiateMultipartUploadResult initiateUploadResult =
           archiveMPU.initiateMultipartUpload();
       log.info(initiateUploadResult.toString());
@@ -120,26 +63,8 @@ public final class ArchiveMPU {
   }
 
   private static ArchiveMPU parseArgs(String[] args) {
-    try {
-      Arguments arguments = ArchiveMPU_Arguments_Parser.parse(args);
-      if (!arguments.otherTokens().isEmpty()) {
-        System.out.println("Unknown options: " + arguments.otherTokens());
-        System.exit(1);
-        return null;
-      }
-      return new ArchiveMPU(arguments);
-    } catch (MissingArgError error) {
-      System.out.println("Required options:");
-      for (Option option : Option.values()) {
-        if (option != Option.OTHER_TOKENS) {
-          System.out.println(option.describe(4));
-        }
-      }
-      System.out.printf("Missing required option: %s%n",
-          error.option.describeNames());
-      System.exit(1);
-      return null;
-    }
+    Arguments arguments = ArchiveMPU_Arguments_Parser.parse(args);
+    return new ArchiveMPU(arguments);
   }
 
   private AmazonGlacier client = null;
@@ -162,7 +87,8 @@ public final class ArchiveMPU {
         .withCredentials(new ProfileCredentialsProvider())
         .withEndpointConfiguration(
             new AwsClientBuilder.EndpointConfiguration(
-                serviceEndpoint, signingRegion))
+                arguments.serviceEndpoint(),
+                arguments.signingRegion()))
         .withClientConfiguration(new ClientConfiguration())
         .build();
   }
@@ -170,8 +96,8 @@ public final class ArchiveMPU {
   private InitiateMultipartUploadResult initiateMultipartUpload() {
     // Initiate
     InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest()
-        .withVaultName(vaultName)
-        .withArchiveDescription(description)
+        .withVaultName(arguments.vaultName())
+        .withArchiveDescription(arguments.description())
         .withPartSize(Integer.toString(partSize));
 
     return client().initiateMultipartUpload(request);
@@ -185,12 +111,12 @@ public final class ArchiveMPU {
     long currentPosition = 0;
     List<UploadPartCommand> commands = new LinkedList<>();
 
-    File file = new File(fileToUpload);
+    File file = new File(arguments.fileToUpload());
 
     AtomicInteger numParts = new AtomicInteger();
     AtomicInteger completed = new AtomicInteger();
 
-    try (final FileInputStream fileToUpload = new FileInputStream(file)) {
+    try (FileInputStream fileToUpload = new FileInputStream(file)) {
       while (currentPosition < file.length()) {
         UploadPartCommand command = uploadPart(numParts,
             completed,
@@ -255,26 +181,14 @@ public final class ArchiveMPU {
       String uploadId,
       String checksum) throws IOException {
 
-    File file = new File(fileToUpload);
+    File file = new File(arguments.fileToUpload());
 
     CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest()
-        .withVaultName(vaultName)
+        .withVaultName(arguments.vaultName())
         .withUploadId(uploadId)
         .withChecksum(checksum)
         .withArchiveSize(String.valueOf(file.length()));
 
     return client().completeMultipartUpload(compRequest);
-  }
-
-  static final class MissingArgError extends Exception {
-    final Option option;
-
-    MissingArgError(Option option) {
-      this.option = option;
-    }
-  }
-
-  private static String checkNotNull(Optional<String> s, Option option) throws MissingArgError {
-    return s.orElseThrow(() -> new MissingArgError(option));
   }
 }
