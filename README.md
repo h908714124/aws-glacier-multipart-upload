@@ -8,14 +8,11 @@ A command line tool to upload an archive (file) into amazon glacier.
 
 A vault must already exist. I created one through AWS management console.
 
-### Upload
+Tested with Java 9 and Apache Maven 3.5.2.
+
+### Usage
 
 ````bash
 mvn package
-java -jar target/glacier-upload.jar \
-        --file /home/ich/myarchive.tar.gpg \
-        --description myarchive.tar.gpg \
-        --vault-name myvault \
-        --service-endpoint glacier.eu-central-1.amazonaws.com \
-        --signing-region eu-central-1
+java -jar target/glacier-upload.jar --help
 ````

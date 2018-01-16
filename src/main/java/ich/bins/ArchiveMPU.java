@@ -20,6 +20,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -43,8 +44,10 @@ public final class ArchiveMPU {
     this.arguments = arguments;
   }
 
-  public static void main(String[] args) throws IOException {
-    ArchiveMPU archiveMPU = parseArgs(args);
+  public static void main(String[] args) {
+    Arguments_Parser.parse(args, System.out)
+    .map(ArchiveMPU::new)
+    .ifPresentOrElse(archiveMPU -> {
     try {
       log.info("File size: " + new File(archiveMPU.arguments.fileToUpload()).length());
       InitiateMultipartUploadResult initiateUploadResult =
@@ -60,11 +63,8 @@ public final class ArchiveMPU {
     } finally {
       archiveMPU.client().shutdown();
     }
-  }
-
-  private static ArchiveMPU parseArgs(String[] args) {
-    Arguments arguments = ArchiveMPU_Arguments_Parser.parse(args);
-    return new ArchiveMPU(arguments);
+        }, () -> System.exit(1)
+    );
   }
 
   private AmazonGlacier client = null;

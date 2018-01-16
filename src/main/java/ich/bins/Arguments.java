@@ -4,7 +4,9 @@ import net.jbock.CommandLineArguments;
 import net.jbock.Description;
 import net.jbock.LongName;
 
-@CommandLineArguments
+@CommandLineArguments(
+    missionStatement = "Upload files to amazon glacier",
+    programName = "glacier-upload")
 abstract class Arguments {
 
   @LongName("file")
