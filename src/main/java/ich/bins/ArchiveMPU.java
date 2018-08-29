@@ -7,28 +7,23 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.glacier.AmazonGlacier;
 import com.amazonaws.services.glacier.AmazonGlacierClientBuilder;
 import com.amazonaws.services.glacier.TreeHashGenerator;
-import com.amazonaws.services.glacier.model.CompleteMultipartUploadRequest;
-import com.amazonaws.services.glacier.model.CompleteMultipartUploadResult;
-import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
-import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
-import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
+import com.amazonaws.services.glacier.model.*;
 import com.amazonaws.util.BinaryUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public final class ArchiveMPU {
 
@@ -40,14 +35,12 @@ public final class ArchiveMPU {
 
   final Arguments arguments;
 
-  ArchiveMPU(Arguments arguments) {
+  private ArchiveMPU(Arguments arguments) {
     this.arguments = arguments;
   }
 
-  public static void main(String[] args) {
-    Arguments_Parser.parse(args, System.out)
-    .map(ArchiveMPU::new)
-    .ifPresentOrElse(archiveMPU -> {
+  public static void main(String[] args) throws IOException, InterruptedException {
+    ArchiveMPU archiveMPU = new ArchiveMPU(Arguments_Parser.create().parseOrExit(args));
     try {
       log.info("File size: " + new File(archiveMPU.arguments.fileToUpload()).length());
       InitiateMultipartUploadResult initiateUploadResult =
@@ -57,14 +50,10 @@ public final class ArchiveMPU {
       String checksum = archiveMPU.uploadParts(uploadId);
       CompleteMultipartUploadResult result = archiveMPU.completeMultiPartUpload(
           uploadId, checksum);
-      log.info("Upload finished\n:" + result);
-    } catch (Exception e) {
-      log.error("Error", e);
+      log.info("Upload finished: " + result);
     } finally {
       archiveMPU.client().shutdown();
     }
-        }, () -> System.exit(1)
-    );
   }
 
   private AmazonGlacier client = null;
@@ -105,7 +94,6 @@ public final class ArchiveMPU {
 
   private String uploadParts(
       String uploadId) throws
-      NoSuchAlgorithmException,
       AmazonClientException,
       IOException, InterruptedException {
     long currentPosition = 0;
@@ -179,7 +167,7 @@ public final class ArchiveMPU {
 
   private CompleteMultipartUploadResult completeMultiPartUpload(
       String uploadId,
-      String checksum) throws IOException {
+      String checksum) {
 
     File file = new File(arguments.fileToUpload());
 

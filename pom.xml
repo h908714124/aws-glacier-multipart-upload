@@ -10,7 +10,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <jbock.version>2.3</jbock.version>
+    <jbock.version>2.4.1</jbock.version>
   </properties>
 
   <build>
@@ -18,17 +18,10 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.7.0</version>
+        <version>3.8.0</version>
         <configuration>
-          <source>9</source>
-          <target>9</target>
-          <annotationProcessorPaths>
-            <dependency>
-              <groupId>com.github.h908714124</groupId>
-              <artifactId>jbock</artifactId>
-              <version>${jbock.version}</version>
-            </dependency>
-          </annotationProcessorPaths>
+          <source>8</source>
+          <target>8</target>
         </configuration>
       </plugin>
       <plugin>
@@ -67,7 +60,7 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk</artifactId>
-      <version>1.11.264</version>
+      <version>1.11.397</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
