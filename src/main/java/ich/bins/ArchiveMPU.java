@@ -7,14 +7,20 @@ import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.glacier.AmazonGlacier;
 import com.amazonaws.services.glacier.AmazonGlacierClientBuilder;
 import com.amazonaws.services.glacier.TreeHashGenerator;
-import com.amazonaws.services.glacier.model.*;
+import com.amazonaws.services.glacier.model.CompleteMultipartUploadRequest;
+import com.amazonaws.services.glacier.model.CompleteMultipartUploadResult;
+import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
+import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
+import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -25,7 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-public final class ArchiveMPU {
+public final class ArchiveMPU implements Closeable {
 
   private static final int partSize = 1048576; // 1 MB.
   private static final int clientLife = 60; // see comment below
@@ -40,9 +46,9 @@ public final class ArchiveMPU {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    ArchiveMPU archiveMPU = new ArchiveMPU(Arguments_Parser.create().parseOrExit(args));
-    try {
-      log.info("File size: " + new File(archiveMPU.arguments.fileToUpload()).length());
+
+    try (ArchiveMPU archiveMPU = new ArchiveMPU(Arguments_Parser.create().parseOrExit(args))) {
+      log.info("File size: " + archiveMPU.arguments.fileToUpload().toFile().length());
       InitiateMultipartUploadResult initiateUploadResult =
           archiveMPU.initiateMultipartUpload();
       log.info(initiateUploadResult.toString());
@@ -51,8 +57,6 @@ public final class ArchiveMPU {
       CompleteMultipartUploadResult result = archiveMPU.completeMultiPartUpload(
           uploadId, checksum);
       log.info("Upload finished: " + result);
-    } finally {
-      archiveMPU.client().shutdown();
     }
   }
 
@@ -99,12 +103,12 @@ public final class ArchiveMPU {
     long currentPosition = 0;
     List<UploadPartCommand> commands = new LinkedList<>();
 
-    File file = new File(arguments.fileToUpload());
+    File file = arguments.fileToUpload().toFile();
 
     AtomicInteger numParts = new AtomicInteger();
     AtomicInteger completed = new AtomicInteger();
 
-    try (FileInputStream fileToUpload = new FileInputStream(file)) {
+    try (InputStream fileToUpload = new FileInputStream(file)) {
       while (currentPosition < file.length()) {
         UploadPartCommand command = uploadPart(numParts,
             completed,
@@ -155,7 +159,7 @@ public final class ArchiveMPU {
       AtomicInteger completed,
       final String uploadId,
       final long currentPosition,
-      final FileInputStream fileToUpload) throws IOException {
+      final InputStream fileToUpload) throws IOException {
     byte[] buffer = new byte[partSize];
     int read = fileToUpload.read(buffer, 0, buffer.length);
     if (read < 0) {
@@ -169,7 +173,7 @@ public final class ArchiveMPU {
       String uploadId,
       String checksum) {
 
-    File file = new File(arguments.fileToUpload());
+    File file = arguments.fileToUpload().toFile();
 
     CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest()
         .withVaultName(arguments.vaultName())
@@ -178,5 +182,10 @@ public final class ArchiveMPU {
         .withArchiveSize(String.valueOf(file.length()));
 
     return client().completeMultipartUpload(compRequest);
+  }
+
+  @Override
+  public void close() {
+    client().shutdown();
   }
 }

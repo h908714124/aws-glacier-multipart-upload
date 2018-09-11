@@ -4,6 +4,8 @@ import net.jbock.CommandLineArguments;
 import net.jbock.Description;
 import net.jbock.LongName;
 
+import java.nio.file.Path;
+
 @CommandLineArguments(
     missionStatement = "Upload files to amazon glacier",
     programName = "glacier-upload")
@@ -13,7 +15,7 @@ abstract class Arguments {
   @Description(argumentName = "FILE", value = {
       "file to upload",
       "absolute or relative path"})
-  abstract String fileToUpload();
+  abstract Path fileToUpload();
 
   @LongName("description")
   @Description(argumentName = "NAME", value = {
