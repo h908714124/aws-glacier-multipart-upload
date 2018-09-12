@@ -10,7 +10,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <jbock.version>2.5.1</jbock.version>
+    <jbock.version>2.5.2</jbock.version>
   </properties>
 
   <build>
@@ -60,7 +60,7 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk</artifactId>
-      <version>1.11.397</version>
+      <version>1.11.407</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>

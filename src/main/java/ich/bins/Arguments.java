@@ -1,43 +1,61 @@
 package ich.bins;
 
 import net.jbock.CommandLineArguments;
-import net.jbock.Description;
-import net.jbock.LongName;
+import net.jbock.Parameter;
 
 import java.nio.file.Path;
 
+/**
+ * I have not used it in a while.
+ * It needs some testing.
+ */
 @CommandLineArguments(
     missionStatement = "Upload files to amazon glacier",
     programName = "glacier-upload")
 abstract class Arguments {
 
-  @LongName("file")
-  @Description(argumentName = "FILE", value = {
-      "file to upload",
-      "absolute or relative path"})
+  /**
+   * file to upload
+   * absolute or relative path
+   *
+   * @return FILE
+   */
+  @Parameter(longName = "file")
   abstract Path fileToUpload();
 
-  @LongName("description")
-  @Description(argumentName = "NAME", value = {
-      "archive name",
-      "file name in vault"})
+  /**
+   * archive name
+   * file name in vault
+   *
+   * @return NAME
+   */
+  @Parameter(longName = "description")
   abstract String description();
 
-  @LongName("vault-name")
-  @Description(argumentName = "VAULT", value = {
-      "aws glacier vault name",
-      "the vault must exist"})
+  /**
+   * aws glacier vault name
+   * the vault must exist
+   *
+   * @return VAULT
+   */
+  @Parameter(longName = "vault-name")
   abstract String vaultName();
 
-  @LongName("service-endpoint")
-  @Description({
-      "aws service endpoint",
-      "example: 'glacier.eu-central-1.amazonaws.com'"})
+  /**
+   * aws service endpoint
+   * example: 'glacier.eu-central-1.amazonaws.com'
+   *
+   * @return URL
+   */
+  @Parameter(longName = "service-endpoint")
   abstract String serviceEndpoint();
 
-  @LongName("signing-region")
-  @Description(argumentName = "REGION", value = {
-      "aws signing region",
-      "example: 'eu-central-1'"})
+  /**
+   * aws signing region
+   * example: 'eu-central-1'
+   *
+   * @return REGION
+   */
+  @Parameter(longName = "signing-region")
   abstract String signingRegion();
 }
