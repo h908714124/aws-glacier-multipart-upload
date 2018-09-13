@@ -10,7 +10,7 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <jbock.version>2.5.2</jbock.version>
+    <jbock.version>2.5.3</jbock.version>
   </properties>
 
   <build>
