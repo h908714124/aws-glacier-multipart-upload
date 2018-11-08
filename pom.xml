@@ -11,7 +11,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jbock-annotations.version>2.2</jbock-annotations.version>
-    <jbock.version>2.6.1</jbock.version>
+    <jbock.version>2.6.2</jbock.version>
   </properties>
 
   <dependencies>
