@@ -2,6 +2,7 @@ package ich.bins;
 
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.ClientConfiguration;
+import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.glacier.AmazonGlacier;
@@ -13,8 +14,8 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.Closeable;
 import java.io.File;
@@ -37,7 +38,7 @@ public final class ArchiveMPU implements Closeable {
   private static final int clientLife = 60; // see comment below
   private static final int threads = 4;
 
-  private static final Logger log = LoggerFactory.getLogger(ArchiveMPU.class);
+  private static final Logger log = LogManager.getLogger(ArchiveMPU.class);
 
   final Arguments arguments;
 
@@ -77,7 +78,7 @@ public final class ArchiveMPU implements Closeable {
 
   private AmazonGlacier _client() {
     return AmazonGlacierClientBuilder.standard()
-        .withCredentials(new ProfileCredentialsProvider())
+        .withCredentials(DefaultAWSCredentialsProviderChain.getInstance())
         .withEndpointConfiguration(
             new AwsClientBuilder.EndpointConfiguration(
                 arguments.serviceEndpoint(),

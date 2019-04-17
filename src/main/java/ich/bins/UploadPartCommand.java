@@ -3,8 +3,8 @@ package ich.bins;
 import com.amazonaws.services.glacier.TreeHashGenerator;
 import com.amazonaws.services.glacier.model.UploadMultipartPartRequest;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.util.concurrent.Callable;
@@ -14,7 +14,7 @@ final class UploadPartCommand implements Callable<UploadMultipartPartResult> {
 
   private static final int MAX_ATTEMPTS = 200;
 
-  private final Logger log = LoggerFactory.getLogger(getClass());
+  private final Logger log = LogManager.getLogger(getClass());
 
   private final ArchiveMPU archiveMPU;
   private final AtomicInteger numParts;
@@ -45,7 +45,7 @@ final class UploadPartCommand implements Callable<UploadMultipartPartResult> {
   }
 
   @Override
-  public UploadMultipartPartResult call() throws Exception {
+  public UploadMultipartPartResult call() {
     String contentRange = String.format("bytes %d-%d/*",
         offset,
         offset + bytesRead.length - 1);
