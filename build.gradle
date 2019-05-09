@@ -1,0 +1,46 @@
+plugins {
+    id "application"
+}
+
+mainClassName = "ich.bins.ArchiveMPU"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly "com.github.h908714124:jbock-annotations:2.2"
+    testCompile "org.junit.jupiter:junit-jupiter:5.5.0-M1"
+    annotationProcessor "com.github.h908714124:jbock:2.6.9"
+    compile 'org.apache.logging.log4j:log4j-api:2.11.2'
+    compile 'org.apache.logging.log4j:log4j-core:2.11.2'
+    compile 'com.amazonaws:aws-java-sdk:1.11.548'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+compileJava {
+    options.compilerArgs << "-s"
+    options.compilerArgs << "$projectDir/src/main/generated/java"
+
+    doFirst {
+        // make sure that directory exists
+        file(new File(projectDir, "/src/main/generated/java")).mkdirs()
+    }
+}
+
+clean.doLast {
+    // clean-up directory when necessary
+    file(new File(projectDir, "/src/main/generated")).deleteDir()
+}
+
+sourceSets {
+    generated {
+        java {
+            srcDir "$projectDir/src/main/generated/java"
+        }
+    }
+}
+

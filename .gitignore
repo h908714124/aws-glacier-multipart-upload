@@ -3,3 +3,8 @@ target
 *.iml
 *~
 /result.txt
+/.gradle
+/build
+/out
+/src/main/generated
+
