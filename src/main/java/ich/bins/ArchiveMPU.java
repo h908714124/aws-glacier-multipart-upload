@@ -3,7 +3,6 @@ package ich.bins;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
-import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.client.builder.AwsClientBuilder;
 import com.amazonaws.services.glacier.AmazonGlacier;
 import com.amazonaws.services.glacier.AmazonGlacierClientBuilder;
@@ -14,8 +13,6 @@ import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
 import com.amazonaws.util.BinaryUtils;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.io.Closeable;
 import java.io.File;
@@ -30,6 +27,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public final class ArchiveMPU implements Closeable {
@@ -38,7 +37,7 @@ public final class ArchiveMPU implements Closeable {
   private static final int clientLife = 60; // see comment below
   private static final int threads = 4;
 
-  private static final Logger log = LogManager.getLogger(ArchiveMPU.class);
+  private final Logger log = Logger.getLogger(getClass().getName());
 
   final Arguments arguments;
 
@@ -47,18 +46,20 @@ public final class ArchiveMPU implements Closeable {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-
     try (ArchiveMPU archiveMPU = new ArchiveMPU(Arguments_Parser.create().parseOrExit(args))) {
-      log.info("File size: " + archiveMPU.arguments.fileToUpload().toFile().length());
-      InitiateMultipartUploadResult initiateUploadResult =
-          archiveMPU.initiateMultipartUpload();
-      log.info(initiateUploadResult.toString());
-      String uploadId = initiateUploadResult.getUploadId();
-      String checksum = archiveMPU.uploadParts(uploadId);
-      CompleteMultipartUploadResult result = archiveMPU.completeMultiPartUpload(
-          uploadId, checksum);
-      log.info("Upload finished: " + result);
+      archiveMPU.run();
     }
+  }
+
+  private void run() throws IOException, InterruptedException {
+    log.info("File size: " + arguments.fileToUpload().toFile().length());
+    InitiateMultipartUploadResult initiateUploadResult = initiateMultipartUpload();
+    log.info(initiateUploadResult.toString());
+    String uploadId = initiateUploadResult.getUploadId();
+    String checksum = uploadParts(uploadId);
+    CompleteMultipartUploadResult result = completeMultiPartUpload(
+        uploadId, checksum);
+    log.info("Upload finished: " + result);
   }
 
   private AmazonGlacier client = null;
@@ -143,7 +144,7 @@ public final class ArchiveMPU implements Closeable {
         f.get();
         return true;
       } catch (Exception e) {
-        log.error("Error", e);
+        log.log(Level.SEVERE, "Error", e);
         return false;
       }
     });

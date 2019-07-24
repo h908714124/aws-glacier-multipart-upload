@@ -3,18 +3,17 @@ package ich.bins;
 import com.amazonaws.services.glacier.TreeHashGenerator;
 import com.amazonaws.services.glacier.model.UploadMultipartPartRequest;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 
 import java.io.ByteArrayInputStream;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 
 final class UploadPartCommand implements Callable<UploadMultipartPartResult> {
 
   private static final int MAX_ATTEMPTS = 200;
 
-  private final Logger log = LogManager.getLogger(getClass());
+  private final Logger log = Logger.getLogger(getClass().getName());
 
   private final ArchiveMPU archiveMPU;
   private final AtomicInteger numParts;
