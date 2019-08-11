@@ -12,7 +12,7 @@ repositories {
 dependencies {
     compileOnly "com.github.h908714124:jbock-annotations:2.2"
     testCompile "org.junit.jupiter:junit-jupiter:5.5.1"
-    annotationProcessor "com.github.h908714124:jbock:2.7.2"
+    annotationProcessor "com.github.h908714124:jbock:2.7.3"
     compile 'com.amazonaws:aws-java-sdk:1.11.597'
 }
 
