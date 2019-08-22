@@ -30,26 +30,3 @@ test {
     useJUnitPlatform()
 }
 
-compileJava {
-    options.compilerArgs << "-s"
-    options.compilerArgs << "$projectDir/src/main/generated/java"
-
-    doFirst {
-        // make sure that directory exists
-        file("$projectDir/src/main/generated/java").mkdirs()
-    }
-}
-
-clean.doLast {
-    // clean-up directory when necessary
-    file("$projectDir/src/main/generated").deleteDir()
-}
-
-sourceSets {
-    generated {
-        java {
-            srcDir "$projectDir/src/main/generated/java"
-        }
-    }
-}
-
