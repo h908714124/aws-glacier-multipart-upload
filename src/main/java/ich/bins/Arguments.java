@@ -1,7 +1,7 @@
 package ich.bins;
 
-import net.jbock.CommandLineArguments;
-import net.jbock.Parameter;
+import net.jbock.Command;
+import net.jbock.Option;
 
 import java.nio.file.Path;
 
@@ -9,9 +9,7 @@ import java.nio.file.Path;
  * I have not used it in a while.
  * It needs some testing.
  */
-@CommandLineArguments(
-    missionStatement = "Upload files to amazon glacier",
-    programName = "glacier-upload")
+@Command("glacier-upload")
 abstract class Arguments {
 
   /**
@@ -20,7 +18,7 @@ abstract class Arguments {
    *
    * @return FILE
    */
-  @Parameter(longName = "file")
+  @Option("file")
   abstract Path fileToUpload();
 
   /**
@@ -29,7 +27,7 @@ abstract class Arguments {
    *
    * @return NAME
    */
-  @Parameter(longName = "description")
+  @Option("description")
   abstract String description();
 
   /**
@@ -38,7 +36,7 @@ abstract class Arguments {
    *
    * @return VAULT
    */
-  @Parameter(longName = "vault-name")
+  @Option("vault-name")
   abstract String vaultName();
 
   /**
@@ -47,7 +45,7 @@ abstract class Arguments {
    *
    * @return URL
    */
-  @Parameter(longName = "service-endpoint")
+  @Option("service-endpoint")
   abstract String serviceEndpoint();
 
   /**
@@ -56,6 +54,6 @@ abstract class Arguments {
    *
    * @return REGION
    */
-  @Parameter(longName = "signing-region")
+  @Option("signing-region")
   abstract String signingRegion();
 }

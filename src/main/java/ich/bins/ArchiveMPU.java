@@ -46,7 +46,7 @@ public final class ArchiveMPU implements Closeable {
   }
 
   public static void main(String[] args) throws IOException, InterruptedException {
-    try (ArchiveMPU archiveMPU = new ArchiveMPU(Arguments_Parser.create().parseOrExit(args))) {
+    try (ArchiveMPU archiveMPU = new ArchiveMPU(new Arguments_Parser().parseOrExit(args))) {
       archiveMPU.run();
     }
   }
