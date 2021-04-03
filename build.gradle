@@ -10,10 +10,10 @@ repositories {
 }
 
 dependencies {
-    compileOnly "com.github.h908714124:jbock-annotations:3.4"
+    compileOnly "com.github.h908714124:jbock-annotations:3.5"
     testCompile "org.junit.jupiter:junit-jupiter:5.5.1"
-    annotationProcessor "com.github.h908714124:jbock:3.4.007"
-    compile 'com.amazonaws:aws-java-sdk:1.11.597'
+    annotationProcessor "com.github.h908714124:jbock:3.5.005"
+    compile 'com.amazonaws:aws-java-sdk:1.11.991'
 }
 
 jar {
