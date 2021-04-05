@@ -12,6 +12,8 @@ import com.amazonaws.services.glacier.model.CompleteMultipartUploadResult;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadRequest;
 import com.amazonaws.services.glacier.model.InitiateMultipartUploadResult;
 import com.amazonaws.services.glacier.model.UploadMultipartPartResult;
+import com.amazonaws.services.glacier.transfer.ArchiveTransferManager;
+import com.amazonaws.services.glacier.transfer.ArchiveTransferManagerBuilder;
 import com.amazonaws.util.BinaryUtils;
 
 import java.io.Closeable;
@@ -19,6 +21,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -33,161 +36,180 @@ import java.util.stream.Collectors;
 
 public final class ArchiveMPU implements Closeable {
 
-  private static final int partSize = 1048576; // 1 MB.
-  private static final int clientLife = 60; // see comment below
-  private static final int threads = 4;
+    private static final int partSize = 1048576; // 1 MB.
+    private static final int clientLife = 60; // see comment below
+    private static final int threads = 4;
 
-  private final Logger log = Logger.getLogger(getClass().getName());
+    private final Logger log = Logger.getLogger(getClass().getName());
 
-  final Arguments arguments;
+    final Arguments arguments;
 
-  private ArchiveMPU(Arguments arguments) {
-    this.arguments = arguments;
-  }
-
-  public static void main(String[] args) throws IOException, InterruptedException {
-    try (ArchiveMPU archiveMPU = new ArchiveMPU(new Arguments_Parser().parseOrExit(args))) {
-      archiveMPU.run();
+    private ArchiveMPU(Arguments arguments) {
+        this.arguments = arguments;
     }
-  }
 
-  private void run() throws IOException, InterruptedException {
-    log.info("File size: " + arguments.fileToUpload().toFile().length());
-    InitiateMultipartUploadResult initiateUploadResult = initiateMultipartUpload();
-    log.info(initiateUploadResult.toString());
-    String uploadId = initiateUploadResult.getUploadId();
-    String checksum = uploadParts(uploadId);
-    CompleteMultipartUploadResult result = completeMultiPartUpload(
-        uploadId, checksum);
-    log.info("Upload finished: " + result);
-  }
-
-  private AmazonGlacier client = null;
-  private final AtomicLong connectionCount = new AtomicLong();
-
-  synchronized AmazonGlacier client() {
-    if (client == null) {
-      client = _client();
-    }
-    if (connectionCount.incrementAndGet() % clientLife == 0) {
-      // not sure why but it seemed that without this, connections would degrade over time
-      client.shutdown();
-      client = _client();
-    }
-    return client;
-  }
-
-  private AmazonGlacier _client() {
-    return AmazonGlacierClientBuilder.standard()
-        .withCredentials(DefaultAWSCredentialsProviderChain.getInstance())
-        .withEndpointConfiguration(
-            new AwsClientBuilder.EndpointConfiguration(
-                arguments.serviceEndpoint(),
-                arguments.signingRegion()))
-        .withClientConfiguration(new ClientConfiguration())
-        .build();
-  }
-
-  private InitiateMultipartUploadResult initiateMultipartUpload() {
-    // Initiate
-    InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest()
-        .withVaultName(arguments.vaultName())
-        .withArchiveDescription(arguments.description())
-        .withPartSize(Integer.toString(partSize));
-
-    return client().initiateMultipartUpload(request);
-  }
-
-  private String uploadParts(
-      String uploadId) throws
-      AmazonClientException,
-      IOException, InterruptedException {
-    long currentPosition = 0;
-    List<UploadPartCommand> commands = new LinkedList<>();
-
-    File file = arguments.fileToUpload().toFile();
-
-    AtomicInteger numParts = new AtomicInteger();
-    AtomicInteger completed = new AtomicInteger();
-
-    try (InputStream fileToUpload = new FileInputStream(file)) {
-      while (currentPosition < file.length()) {
-        UploadPartCommand command = uploadPart(numParts,
-            completed,
-            uploadId,
-            currentPosition,
-            fileToUpload);
-        if (command.length() == 0) {
-          break;
+    public static void main(String[] args) {
+        try (ArchiveMPU archiveMPU = new ArchiveMPU(new Arguments_Parser().parseOrExit(args))) {
+            // TODO add cli param to distinguish upload/download job
+            archiveMPU.runDownload();
         }
-        commands.add(command);
-        currentPosition += command.length();
-      }
     }
 
-    long totalLength =
-        commands.stream().mapToInt(UploadPartCommand::length).sum();
+    private void runDownload() {
 
-    if (totalLength != file.length()) {
-      throw new IllegalStateException("File size is " + file.length() +
-          " but sum of parts is " + totalLength);
+        try {
+            ArchiveTransferManager atm = new ArchiveTransferManagerBuilder().withGlacierClient(client())
+                    .build();
+
+            Path downloadPath = arguments.downloadPath().orElseThrow(NullPointerException::new);
+            atm.download(
+                    arguments.vaultName(),
+                    arguments.archiveId().orElseThrow(NullPointerException::new),
+                    downloadPath.toFile());
+            System.out.println("Downloaded file to " + downloadPath);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    List<byte[]> binaryChecksums = commands.stream()
-        .map(command -> BinaryUtils.fromHex(command.checksum))
-        .collect(Collectors.toList());
-    numParts.set(binaryChecksums.size());
-    ExecutorService pool = Executors.newFixedThreadPool(threads);
-    List<Future<UploadMultipartPartResult>> futures = pool.invokeAll(commands);
-    boolean success = futures.stream().allMatch(f -> {
-      try {
-        f.get();
-        return true;
-      } catch (Exception e) {
-        log.log(Level.SEVERE, "Error", e);
-        return false;
-      }
-    });
-    pool.shutdown();
-    if (success) {
-      return TreeHashGenerator.calculateTreeHash(binaryChecksums);
-    } else {
-      throw new IllegalStateException("Some uploads have failed");
+    private void runUpload() throws IOException, InterruptedException {
+        log.info("File size: " + arguments.fileToUpload().toFile().length());
+        InitiateMultipartUploadResult initiateUploadResult = initiateMultipartUpload();
+        log.info(initiateUploadResult.toString());
+        String uploadId = initiateUploadResult.getUploadId();
+        String checksum = uploadParts(uploadId);
+        CompleteMultipartUploadResult result = completeMultiPartUpload(
+                uploadId, checksum);
+        log.info("Upload finished: " + result);
     }
-  }
 
-  private UploadPartCommand uploadPart(
-      AtomicInteger numParts,
-      AtomicInteger completed,
-      final String uploadId,
-      final long currentPosition,
-      final InputStream fileToUpload) throws IOException {
-    byte[] buffer = new byte[partSize];
-    int read = fileToUpload.read(buffer, 0, buffer.length);
-    if (read < 0) {
-      return new UploadPartCommand(this, numParts, completed, currentPosition, null, uploadId);
+    private AmazonGlacier client = null;
+    private final AtomicLong connectionCount = new AtomicLong();
+
+    synchronized AmazonGlacier client() {
+        if (client == null) {
+            client = _client();
+        }
+        if (connectionCount.incrementAndGet() % clientLife == 0) {
+            // not sure why but it seemed that without this, connections would degrade over time
+            client.shutdown();
+            client = _client();
+        }
+        return client;
     }
-    byte[] bytesRead = Arrays.copyOf(buffer, read);
-    return new UploadPartCommand(this, numParts, completed, currentPosition, bytesRead, uploadId);
-  }
 
-  private CompleteMultipartUploadResult completeMultiPartUpload(
-      String uploadId,
-      String checksum) {
+    private AmazonGlacier _client() {
+        return AmazonGlacierClientBuilder.standard()
+                .withCredentials(DefaultAWSCredentialsProviderChain.getInstance())
+                .withEndpointConfiguration(
+                        new AwsClientBuilder.EndpointConfiguration(
+                                arguments.serviceEndpoint(),
+                                arguments.signingRegion()))
+                .withClientConfiguration(new ClientConfiguration())
+                .build();
+    }
 
-    File file = arguments.fileToUpload().toFile();
+    private InitiateMultipartUploadResult initiateMultipartUpload() {
+        // Initiate
+        InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest()
+                .withVaultName(arguments.vaultName())
+                .withArchiveDescription(arguments.description())
+                .withPartSize(Integer.toString(partSize));
 
-    CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest()
-        .withVaultName(arguments.vaultName())
-        .withUploadId(uploadId)
-        .withChecksum(checksum)
-        .withArchiveSize(String.valueOf(file.length()));
+        return client().initiateMultipartUpload(request);
+    }
 
-    return client().completeMultipartUpload(compRequest);
-  }
+    private String uploadParts(
+            String uploadId) throws
+            AmazonClientException,
+            IOException, InterruptedException {
+        long currentPosition = 0;
+        List<UploadPartCommand> commands = new LinkedList<>();
 
-  @Override
-  public void close() {
-    client().shutdown();
-  }
+        File file = arguments.fileToUpload().toFile();
+
+        AtomicInteger numParts = new AtomicInteger();
+        AtomicInteger completed = new AtomicInteger();
+
+        try (InputStream fileToUpload = new FileInputStream(file)) {
+            while (currentPosition < file.length()) {
+                UploadPartCommand command = uploadPart(numParts,
+                        completed,
+                        uploadId,
+                        currentPosition,
+                        fileToUpload);
+                if (command.length() == 0) {
+                    break;
+                }
+                commands.add(command);
+                currentPosition += command.length();
+            }
+        }
+
+        long totalLength =
+                commands.stream().mapToInt(UploadPartCommand::length).sum();
+
+        if (totalLength != file.length()) {
+            throw new IllegalStateException("File size is " + file.length() +
+                    " but sum of parts is " + totalLength);
+        }
+
+        List<byte[]> binaryChecksums = commands.stream()
+                .map(command -> BinaryUtils.fromHex(command.checksum))
+                .collect(Collectors.toList());
+        numParts.set(binaryChecksums.size());
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        List<Future<UploadMultipartPartResult>> futures = pool.invokeAll(commands);
+        boolean success = futures.stream().allMatch(f -> {
+            try {
+                f.get();
+                return true;
+            } catch (Exception e) {
+                log.log(Level.SEVERE, "Error", e);
+                return false;
+            }
+        });
+        pool.shutdown();
+        if (success) {
+            return TreeHashGenerator.calculateTreeHash(binaryChecksums);
+        } else {
+            throw new IllegalStateException("Some uploads have failed");
+        }
+    }
+
+    private UploadPartCommand uploadPart(
+            AtomicInteger numParts,
+            AtomicInteger completed,
+            final String uploadId,
+            final long currentPosition,
+            final InputStream fileToUpload) throws IOException {
+        byte[] buffer = new byte[partSize];
+        int read = fileToUpload.read(buffer, 0, buffer.length);
+        if (read < 0) {
+            return new UploadPartCommand(this, numParts, completed, currentPosition, null, uploadId);
+        }
+        byte[] bytesRead = Arrays.copyOf(buffer, read);
+        return new UploadPartCommand(this, numParts, completed, currentPosition, bytesRead, uploadId);
+    }
+
+    private CompleteMultipartUploadResult completeMultiPartUpload(
+            String uploadId,
+            String checksum) {
+
+        File file = arguments.fileToUpload().toFile();
+
+        CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest()
+                .withVaultName(arguments.vaultName())
+                .withUploadId(uploadId)
+                .withChecksum(checksum)
+                .withArchiveSize(String.valueOf(file.length()));
+
+        return client().completeMultipartUpload(compRequest);
+    }
+
+    @Override
+    public void close() {
+        client().shutdown();
+    }
 }

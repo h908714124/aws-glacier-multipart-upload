@@ -4,6 +4,7 @@ import net.jbock.Command;
 import net.jbock.Option;
 
 import java.nio.file.Path;
+import java.util.Optional;
 
 /**
  * I have not used it in a while.
@@ -56,4 +57,12 @@ abstract class Arguments {
    */
   @Option("signing-region")
   abstract String signingRegion();
+
+  // DOWNLOAD ONLY
+  @Option("archive-id")
+  abstract Optional<String> archiveId();
+
+  // DOWNLOAD ONLY
+  @Option("download-path")
+  abstract Optional<Path> downloadPath();
 }
