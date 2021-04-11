@@ -1,5 +1,5 @@
 plugins {
-    id 'com.github.johnrengelman.shadow' version '5.1.0'
+    id 'com.github.johnrengelman.shadow' version '6.1.0'
     id "application"
 }
 
@@ -11,9 +11,9 @@ repositories {
 
 dependencies {
     compileOnly "com.github.h908714124:jbock-annotations:3.5"
-    testCompile "org.junit.jupiter:junit-jupiter:5.5.1"
+    testImplementation "org.junit.jupiter:junit-jupiter:5.7.0"
     annotationProcessor "com.github.h908714124:jbock:3.5.005"
-    compile 'com.amazonaws:aws-java-sdk:1.11.991'
+    implementation 'com.amazonaws:aws-java-sdk:1.11.991'
 }
 
 jar {
