@@ -48,10 +48,15 @@ public final class ArchiveMPU implements Closeable {
         this.arguments = arguments;
     }
 
-    public static void main(String[] args) {
-        try (ArchiveMPU archiveMPU = new ArchiveMPU(new Arguments_Parser().parseOrExit(args))) {
-            // TODO add cli param to distinguish upload/download job
-            archiveMPU.runDownload();
+    public static void main(String[] args) throws IOException, InterruptedException {
+        OperationCommand_Parser.OperationCommandWithRest result = new OperationCommand_Parser().parseOrExit(args);
+        Operation operation = result.getResult().operation();
+        String[] rest = result.getRest();
+        try (ArchiveMPU archiveMPU = new ArchiveMPU(new Arguments_Parser().parseOrExit(rest))) {
+            switch (operation) {
+                case UPLOAD -> archiveMPU.runUpload();
+                case DOWNLOAD -> archiveMPU.runDownload();
+            }
         }
     }
 

@@ -5,14 +5,29 @@ plugins {
 
 mainClassName = "ich.bins.ArchiveMPU"
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(16))
+    }
+}
+
+compileJava {
+    options.encoding = 'UTF-8'
+    sourceCompatibility = '16'
+    targetCompatibility = '16'
+    options.compilerArgs << '--release'
+    options.compilerArgs << '16'
+}
+
 repositories {
     mavenCentral()
+//    maven { url "https://oss.sonatype.org/content/repositories/comgithubh908714124-1394" }
 }
 
 dependencies {
-    compileOnly "com.github.h908714124:jbock-annotations:3.5"
+    compileOnly "com.github.h908714124:jbock-annotations:3.6"
     testImplementation "org.junit.jupiter:junit-jupiter:5.7.0"
-    annotationProcessor "com.github.h908714124:jbock:3.5.005"
+    annotationProcessor "com.github.h908714124:jbock:3.6.000"
     implementation 'com.amazonaws:aws-java-sdk:1.11.991'
 }
 

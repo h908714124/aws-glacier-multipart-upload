@@ -6,10 +6,6 @@ import net.jbock.Option;
 import java.nio.file.Path;
 import java.util.Optional;
 
-/**
- * I have not used it in a while.
- * It needs some testing.
- */
 @Command("glacier-upload")
 abstract class Arguments {
 
