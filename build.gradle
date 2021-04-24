@@ -3,7 +3,9 @@ plugins {
     id "application"
 }
 
-mainClassName = "ich.bins.ArchiveMPU"
+application {
+    mainClass = "ich.bins.ArchiveMPU"
+}
 
 java {
     toolchain {
@@ -27,7 +29,7 @@ repositories {
 dependencies {
     compileOnly "com.github.h908714124:jbock-annotations:3.6"
     testImplementation "org.junit.jupiter:junit-jupiter:5.7.0"
-    annotationProcessor "com.github.h908714124:jbock:3.6.000"
+    annotationProcessor "com.github.h908714124:jbock:3.6.002"
     implementation 'com.amazonaws:aws-java-sdk:1.11.991'
 }
 
