@@ -1,10 +1,10 @@
 plugins {
     id 'com.github.johnrengelman.shadow' version '6.1.0'
-    id "application"
+    id 'application'
 }
 
 application {
-    mainClass = "ich.bins.ArchiveMPU"
+    mainClass = 'ich.bins.ArchiveMPU'
 }
 
 java {
@@ -17,30 +17,17 @@ compileJava {
     options.encoding = 'UTF-8'
     sourceCompatibility = '16'
     targetCompatibility = '16'
-    options.compilerArgs << '--release'
-    options.compilerArgs << '16'
 }
 
 repositories {
     mavenCentral()
-//    maven { url "https://oss.sonatype.org/content/repositories/comgithubh908714124-1394" }
 }
 
 dependencies {
-    compileOnly "com.github.h908714124:jbock-annotations:3.6"
-    testImplementation "org.junit.jupiter:junit-jupiter:5.7.0"
-    annotationProcessor "com.github.h908714124:jbock:3.6.002"
+    compileOnly 'com.github.h908714124:jbock-annotations:3.6'
+    annotationProcessor 'com.github.h908714124:jbock:3.6.002'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
     implementation 'com.amazonaws:aws-java-sdk:1.11.991'
-}
-
-jar {
-    manifest {
-        attributes 'Main-Class': "$mainClassName"
-    }
-}
-
-shadowJar {
-    zip64 true
 }
 
 test {
