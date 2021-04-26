@@ -3,6 +3,9 @@ package ich.bins;
 import net.jbock.Param;
 import net.jbock.SuperCommand;
 
+/**
+ * Some basic glacier operations.
+ */
 @SuperCommand("glacier")
 abstract class OperationCommand {
 
