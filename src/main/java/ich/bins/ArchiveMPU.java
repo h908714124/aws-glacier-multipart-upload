@@ -52,30 +52,25 @@ public final class ArchiveMPU implements Closeable {
         OperationCommand_Parser.OperationCommandWithRest result = new OperationCommand_Parser().parseOrExit(args);
         Operation operation = result.getResult().operation();
         String[] rest = result.getRest();
-        try (ArchiveMPU archiveMPU = new ArchiveMPU(new Arguments_Parser().parseOrExit(rest))) {
-            switch (operation) {
-                case UPLOAD -> archiveMPU.runUpload();
-                case DOWNLOAD -> archiveMPU.runDownload();
+        switch (operation) {
+            case UPLOAD -> new ArchiveMPU(new UploadArguments_Parser()
+                    .parseOrExit(rest)).runUpload();
+            case DOWNLOAD -> {
+                DownloadArguments arguments = new DownloadArguments_Parser()
+                        .parseOrExit(rest);
+                new ArchiveMPU(arguments).runDownload(arguments.downloadPath(), arguments.archiveId());
             }
         }
     }
 
-    private void runDownload() {
-
-        try {
-            ArchiveTransferManager atm = new ArchiveTransferManagerBuilder().withGlacierClient(client())
-                    .build();
-
-            Path downloadPath = arguments.downloadPath().orElseThrow(NullPointerException::new);
-            atm.download(
-                    arguments.vaultName(),
-                    arguments.archiveId().orElseThrow(NullPointerException::new),
-                    downloadPath.toFile());
-            System.out.println("Downloaded file to " + downloadPath);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    private void runDownload(Path downloadPath, String archiveId) {
+        ArchiveTransferManager atm = new ArchiveTransferManagerBuilder().withGlacierClient(client())
+                .build();
+        atm.download(
+                arguments.vaultName(),
+                archiveId,
+                downloadPath.toFile());
+        log.info("Downloaded file to " + downloadPath);
     }
 
     private void runUpload() throws IOException, InterruptedException {
