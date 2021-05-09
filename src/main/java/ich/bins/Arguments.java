@@ -13,7 +13,7 @@ abstract class Arguments {
      *
      * @return FILE
      */
-    @Option("file")
+    @Option(names = "--file")
     abstract Path fileToUpload();
 
     /**
@@ -22,7 +22,7 @@ abstract class Arguments {
      *
      * @return NAME
      */
-    @Option("description")
+    @Option(names = "--description")
     abstract String description();
 
     /**
@@ -31,7 +31,7 @@ abstract class Arguments {
      *
      * @return VAULT
      */
-    @Option("vault-name")
+    @Option(names = "--vault-name")
     abstract String vaultName();
 
     /**
@@ -40,7 +40,7 @@ abstract class Arguments {
      *
      * @return URL
      */
-    @Option("service-endpoint")
+    @Option(names = "--service-endpoint")
     abstract String serviceEndpoint();
 
     /**
@@ -49,6 +49,6 @@ abstract class Arguments {
      *
      * @return REGION
      */
-    @Option("signing-region")
+    @Option(names = "--signing-region")
     abstract String signingRegion();
 }

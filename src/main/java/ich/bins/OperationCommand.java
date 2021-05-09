@@ -1,14 +1,14 @@
 package ich.bins;
 
-import net.jbock.Param;
+import net.jbock.Parameter;
 import net.jbock.SuperCommand;
 
 /**
  * Some basic glacier operations.
  */
-@SuperCommand("glacier")
+@SuperCommand(name = "glacier")
 abstract class OperationCommand {
 
-    @Param(0)
+    @Parameter(index = 0)
     abstract Operation operation();
 }
