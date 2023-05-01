@@ -51,7 +51,7 @@ final class UploadPartCommand implements Callable<UploadMultipartPartResult> {
     for (int i = 0; i < MAX_ATTEMPTS; i++) {
       try {
         UploadMultipartPartRequest partRequest = new UploadMultipartPartRequest()
-            .withVaultName(archiveMPU.arguments.vaultName())
+            .withVaultName(archiveMPU.command.vaultName())
             .withBody(new ByteArrayInputStream(bytesRead))
             .withChecksum(checksum)
             .withRange(contentRange)

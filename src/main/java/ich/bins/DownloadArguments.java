@@ -5,13 +5,14 @@ import net.jbock.Option;
 
 import java.nio.file.Path;
 
-@Command(name = "glacier-download")
-abstract class DownloadArguments extends Arguments {
+@Command(
+        name = "glacier-download",
+        parseOrExitMethodAcceptsList = true)
+interface DownloadArguments {
 
     @Option(names = "--archive-id")
-    abstract String archiveId();
+    String archiveId();
 
     @Option(names = "--download-path")
-    abstract Path downloadPath();
-
+    Path downloadPath();
 }

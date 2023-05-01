@@ -21,7 +21,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -42,45 +41,39 @@ public final class ArchiveMPU implements Closeable {
 
     private final Logger log = Logger.getLogger(getClass().getName());
 
-    final Arguments arguments;
+    final OperationCommand command;
 
-    private ArchiveMPU(Arguments arguments) {
-        this.arguments = arguments;
+    private ArchiveMPU(OperationCommand command) {
+        this.command = command;
     }
 
     public static void main(String[] args) throws IOException, InterruptedException {
-        OperationCommand_Parser.OperationCommandWithRest result = new OperationCommand_Parser().parseOrExit(args);
-        Operation operation = result.getResult().operation();
-        String[] rest = result.getRest();
-        switch (operation) {
-            case UPLOAD -> new ArchiveMPU(new UploadArguments_Parser()
-                    .parseOrExit(rest)).runUpload();
-            case DOWNLOAD -> {
-                DownloadArguments arguments = new DownloadArguments_Parser()
-                        .parseOrExit(rest);
-                new ArchiveMPU(arguments).runDownload(arguments.downloadPath(), arguments.archiveId());
-            }
+        OperationCommand command = new OperationCommandParser().parseOrExit(args);
+        ArchiveMPU m = new ArchiveMPU(command);
+        switch (command.operation()) {
+            case UPLOAD -> m.runUpload(new UploadArgumentsParser().parseOrExit(command.rest()));
+            case DOWNLOAD -> m.runDownload(new DownloadArgumentsParser().parseOrExit(command.rest()));
         }
     }
 
-    private void runDownload(Path downloadPath, String archiveId) {
+    private void runDownload(DownloadArguments download) {
         ArchiveTransferManager atm = new ArchiveTransferManagerBuilder().withGlacierClient(client())
                 .build();
         atm.download(
-                arguments.vaultName(),
-                archiveId,
-                downloadPath.toFile());
-        log.info("Downloaded file to " + downloadPath);
+                command.vaultName(),
+                download.archiveId(),
+                download.downloadPath().toFile());
+        log.info("Downloaded file to " + download.downloadPath());
     }
 
-    private void runUpload() throws IOException, InterruptedException {
-        log.info("File size: " + arguments.fileToUpload().toFile().length());
-        InitiateMultipartUploadResult initiateUploadResult = initiateMultipartUpload();
+    private void runUpload(UploadArguments upload) throws IOException, InterruptedException {
+        log.info("File size: " + upload.fileToUpload().toFile().length());
+        InitiateMultipartUploadResult initiateUploadResult = initiateMultipartUpload(upload);
         log.info(initiateUploadResult.toString());
         String uploadId = initiateUploadResult.getUploadId();
-        String checksum = uploadParts(uploadId);
+        String checksum = uploadParts(upload, uploadId);
         CompleteMultipartUploadResult result = completeMultiPartUpload(
-                uploadId, checksum);
+                upload, uploadId, checksum);
         log.info("Upload finished: " + result);
     }
 
@@ -104,30 +97,31 @@ public final class ArchiveMPU implements Closeable {
                 .withCredentials(DefaultAWSCredentialsProviderChain.getInstance())
                 .withEndpointConfiguration(
                         new AwsClientBuilder.EndpointConfiguration(
-                                arguments.serviceEndpoint(),
-                                arguments.signingRegion()))
+                                command.serviceEndpoint(),
+                                command.signingRegion()))
                 .withClientConfiguration(new ClientConfiguration())
                 .build();
     }
 
-    private InitiateMultipartUploadResult initiateMultipartUpload() {
+    private InitiateMultipartUploadResult initiateMultipartUpload(UploadArguments upload) {
         // Initiate
         InitiateMultipartUploadRequest request = new InitiateMultipartUploadRequest()
-                .withVaultName(arguments.vaultName())
-                .withArchiveDescription(arguments.description())
+                .withVaultName(command.vaultName())
+                .withArchiveDescription(upload.description())
                 .withPartSize(Integer.toString(partSize));
 
         return client().initiateMultipartUpload(request);
     }
 
     private String uploadParts(
+            UploadArguments upload,
             String uploadId) throws
             AmazonClientException,
             IOException, InterruptedException {
         long currentPosition = 0;
         List<UploadPartCommand> commands = new LinkedList<>();
 
-        File file = arguments.fileToUpload().toFile();
+        File file = upload.fileToUpload().toFile();
 
         AtomicInteger numParts = new AtomicInteger();
         AtomicInteger completed = new AtomicInteger();
@@ -194,13 +188,14 @@ public final class ArchiveMPU implements Closeable {
     }
 
     private CompleteMultipartUploadResult completeMultiPartUpload(
+            UploadArguments upload,
             String uploadId,
             String checksum) {
 
-        File file = arguments.fileToUpload().toFile();
+        File file = upload.fileToUpload().toFile();
 
         CompleteMultipartUploadRequest compRequest = new CompleteMultipartUploadRequest()
-                .withVaultName(arguments.vaultName())
+                .withVaultName(command.vaultName())
                 .withUploadId(uploadId)
                 .withChecksum(checksum)
                 .withArchiveSize(String.valueOf(file.length()));

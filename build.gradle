@@ -1,5 +1,5 @@
 plugins {
-    id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
     id 'application'
 }
 
@@ -9,14 +9,14 @@ application {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(16))
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
 compileJava {
     options.encoding = 'UTF-8'
-    sourceCompatibility = '16'
-    targetCompatibility = '16'
+    sourceCompatibility = '17'
+    targetCompatibility = '17'
 }
 
 repositories {
@@ -24,10 +24,10 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'com.github.h908714124:jbock-annotations:4.2'
-    annotationProcessor 'com.github.h908714124:jbock:4.2.000'
-    testImplementation 'org.junit.jupiter:junit-jupiter:5.7.1'
-    implementation 'com.amazonaws:aws-java-sdk:1.11.991'
+    implementation 'io.github.jbock-java:jbock:5.16'
+    annotationProcessor 'io.github.jbock-java:jbock-compiler:5.16'
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.9.2'
+    implementation 'com.amazonaws:aws-java-sdk-glacier:1.12.459'
 }
 
 test {

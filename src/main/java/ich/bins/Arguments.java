@@ -1,11 +1,8 @@
 package ich.bins;
 
-import net.jbock.Option;
-
 import java.nio.file.Path;
-import java.util.Optional;
 
-abstract class Arguments {
+interface Arguments {
 
     /**
      * file to upload
@@ -13,8 +10,7 @@ abstract class Arguments {
      *
      * @return FILE
      */
-    @Option(names = "--file")
-    abstract Path fileToUpload();
+    Path fileToUpload();
 
     /**
      * archive name
@@ -22,8 +18,7 @@ abstract class Arguments {
      *
      * @return NAME
      */
-    @Option(names = "--description")
-    abstract String description();
+    String description();
 
     /**
      * aws glacier vault name
@@ -31,8 +26,7 @@ abstract class Arguments {
      *
      * @return VAULT
      */
-    @Option(names = "--vault-name")
-    abstract String vaultName();
+    String vaultName();
 
     /**
      * aws service endpoint
@@ -40,8 +34,7 @@ abstract class Arguments {
      *
      * @return URL
      */
-    @Option(names = "--service-endpoint")
-    abstract String serviceEndpoint();
+    String serviceEndpoint();
 
     /**
      * aws signing region
@@ -49,6 +42,5 @@ abstract class Arguments {
      *
      * @return REGION
      */
-    @Option(names = "--signing-region")
-    abstract String signingRegion();
+    String signingRegion();
 }
